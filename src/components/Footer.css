@@ -1,0 +1,382 @@
+﻿/* ========================================
+   FOOTER — dark premium footer
+   Single centred 1280px container holds:
+   CTA row (left heading / right button),
+   4 aligned link columns, and a clean
+   bottom bar (copyright / legal / payments).
+   Responsive: 4 cols -> 2 cols -> 1 col.
+   No absolute positioning, no stray margins.
+   ======================================== */
+.footer {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 64px clamp(18px, 4vw, 40px) 26px;
+}
+
+.footer-inner {
+  max-width: 1280px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- CTA row: heading left, button right ---- */
+.footer-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 28px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid rgba(255, 244, 229, 0.14);
+}
+
+.footer-cta h2 {
+  font-size: clamp(28px, 3.6vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.footer-cta h2 em {
+  font-style: normal;
+  color: var(--electric);
+}
+
+.footer-cta p {
+  color: var(--sand-mid);
+  max-width: 48ch;
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.footer-cta-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.footer-cta-actions .primary-button {
+  background: var(--electric);
+  color: #fff;
+  border-color: var(--electric);
+}
+
+.footer-cta-actions .primary-button:hover {
+  background: var(--electric-d);
+  border-color: var(--electric-d);
+}
+
+/* ---- Link columns: Brand / Collections / Help / Company ---- */
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 48px);
+  padding: 40px 0 32px;
+}
+
+.footer-grid > * {
+  min-width: 0;
+}
+
+/* Brand column — resets the global .brand helper from App.css */
+.footer-brand .brand {
+  display: inline-flex;
+  align-items: baseline;
+  justify-self: auto;
+  gap: 7px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(24px, 2.4vw, 28px);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.footer-brand p {
+  color: var(--sand-mid);
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 34ch;
+  margin: 14px 0 0;
+}
+
+.social-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.social-row a {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--paper);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.social-row a:hover {
+  background: var(--electric);
+  border-color: var(--electric);
+  color: #fff;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Column heading doubles as the accordion toggle on mobile.
+   Desktop: plain heading, not interactive. */
+.footer-col-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  min-height: 0;
+  background: none;
+  border: 0;
+  cursor: default;
+  text-align: left;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sand-2);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.footer-col-chevron { display: none; }
+
+.footer-col-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-col a {
+  display: block;
+  color: var(--sand-mid);
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 1px 0;
+  transition: color 0.2s ease;
+}
+
+.footer-col a:hover {
+  color: var(--paper);
+}
+
+/* ---- Bottom bar: copyright + legal links + payments ---- */
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 244, 229, 0.14);
+  font-size: 14.5px;
+  color: var(--sand-mid);
+}
+
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.footer-bottom a {
+  color: var(--sand-mid);
+  transition: color 0.2s ease;
+}
+
+.footer-bottom a:hover {
+  color: var(--paper);
+}
+
+.payments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.payments-list li {
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: var(--sand-mid);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+/* ---- Responsive: desktop 4 -> tablet 2 -> mobile 1 ---- */
+@media (max-width: 1024px) {
+  .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+  .footer { padding: 40px 18px 22px; }
+
+  /* ---- CTA: centred heading, description, compact button ---- */
+  .footer-cta {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 18px;
+    padding-bottom: 28px;
+  }
+
+  .footer-cta h2 {
+    font-size: clamp(26px, 8vw, 32px);
+    margin: 0;
+  }
+
+  .footer-cta p {
+    font-size: 15px;
+    max-width: 40ch;
+  }
+
+  .footer-cta-actions {
+    justify-content: center;
+  }
+
+  .footer-cta-actions .primary-button {
+    width: auto;
+    min-height: 44px;
+    padding: 12px 26px;
+    justify-content: center;
+  }
+
+  /* ---- Single column + centred brand block ---- */
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 4px 0 22px;
+  }
+
+  .footer-col--brand {
+    align-items: center;
+    text-align: center;
+    gap: 0;
+    padding: 8px 0 18px;
+  }
+
+  .footer-brand .brand { font-size: 24px; }
+
+  .footer-brand p {
+    margin: 12px auto 0;
+  }
+
+  .social-row {
+    justify-content: center;
+    margin-top: 18px;
+  }
+
+  .social-row a {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ---- Compact accordion rows for Collections / Help / Company ---- */
+  .footer-col { gap: 0; }
+
+  .footer-col-toggle {
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    margin: 0;
+    border-bottom: 1px solid rgba(255, 244, 229, 0.12);
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.2s ease;
+  }
+
+  .footer-col-toggle:hover {
+    color: var(--paper);
+  }
+
+  .footer-col-chevron {
+    display: block;
+    color: var(--sand-mid);
+    flex: 0 0 auto;
+    transition: transform 0.25s var(--ease-out), color 0.2s ease;
+  }
+
+  .footer-col-toggle[aria-expanded="true"] .footer-col-chevron {
+    transform: rotate(180deg);
+  }
+
+  .footer-col-links {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    gap: 0;
+    transition: max-height 0.32s var(--ease-out), opacity 0.28s ease;
+  }
+
+  .footer-col-links.open {
+    max-height: 360px;
+    opacity: 1;
+    pointer-events: auto;
+    gap: 2px;
+    padding: 4px 0 8px;
+  }
+
+  .footer-col a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 15px;
+    padding: 0 4px;
+  }
+
+  /* ---- Bottom bar: legal -> payments -> copyright ---- */
+  .footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+    padding-top: 20px;
+    font-size: 14px;
+  }
+
+  .footer-legal {
+    justify-content: center;
+    gap: 6px 18px;
+    order: 1;
+  }
+
+  .footer-legal a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 2px;
+    font-size: 14.5px;
+  }
+
+  .payments-list {
+    justify-content: center;
+    width: 100%;
+    order: 2;
+  }
+
+  .footer-copy {
+    order: 3;
+  }
+}

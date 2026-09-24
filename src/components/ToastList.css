@@ -1,0 +1,54 @@
+﻿/* ========================================
+   TOAST LIST — bottom-right notification stack
+======================================== */
+.toast-stack {
+  position: fixed;
+  z-index: 1300;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 36px));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  box-shadow: 0 12px 32px rgba(10, 8, 5, 0.25);
+  animation: toast-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast.success svg { color: #5fd38a; }
+.toast.info svg { color: #c9b8ff; }
+.toast.error svg { color: #ff8a80; }
+
+.toast-close {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.toast-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
