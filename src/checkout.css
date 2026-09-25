@@ -617,12 +617,23 @@
   color: var(--sand-mid);
   margin: 0 0 22px;
 }
-.success-actions { display: flex; justify-content: center; }
+.success-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .success-home-btn {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
 }
+.success-orders-btn {
+  background: var(--electric);
+  color: #fff;
+  border-color: var(--electric);
+}
+.success-orders-btn:hover { background: var(--electric-d); border-color: var(--electric-d); }
 
 /* ========================================================
    PROMO POPUP

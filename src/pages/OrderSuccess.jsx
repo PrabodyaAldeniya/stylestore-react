@@ -7,10 +7,11 @@
    ======================================== */
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { Banknote, CreditCard, Home, Loader2, PackageCheck } from "lucide-react";
+import { Banknote, CreditCard, Home, Loader2, Package, PackageCheck } from "lucide-react";
 
 import { formatLKR } from "../format";
 import { fetchOrder } from "../lib/checkoutApi";
+import { addOrderNumber } from "../lib/orderHistoryStorage";
 
 function BankInstructions({ total }) {
   return (
@@ -55,6 +56,13 @@ function OrderSuccess() {
   const [order, setOrder] = useState(initial || null);
   const [loading, setLoading] = useState(!initial);
   const [fetchFailed, setFetchFailed] = useState(false);
+
+  // Every placed order is remembered on this device so it shows up on the
+  // My Orders page. addOrderNumber is idempotent and never clears existing
+  // entries, so refreshing or revisiting this URL is safe.
+  useEffect(() => {
+    if (orderNumber) addOrderNumber(orderNumber);
+  }, [orderNumber]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -160,6 +168,9 @@ function OrderSuccess() {
           )}
 
           <div className="success-actions">
+            <Link to="/orders" className="primary-button success-orders-btn">
+              <Package size={16} /> View My Orders
+            </Link>
             <Link to="/" className="primary-button success-home-btn">
               <Home size={16} /> Continue Shopping
             </Link>

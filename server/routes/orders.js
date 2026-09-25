@@ -1,11 +1,15 @@
 // ========================================
-// StyleStore checkout API.
+// StyleStore checkout + order history API.
 // POST /api/orders — creates an order inside a MySQL
 // transaction. All pricing is computed server-side from
 // the trusted backend catalog; client-supplied prices and
 // discount amounts are ignored.
 // GET  /api/orders/:orderNumber — safe order summary for
 // the confirmation page (after a refresh).
+// POST /api/orders/history — returns the orders matching
+// the order numbers the browser stored in localStorage.
+// POST /api/orders/lookup — returns one order only when
+// the order number AND the checkout email both match.
 // POST /api/orders/discount-code — validates a discount
 // code and returns its percentage.
 //
@@ -22,6 +26,9 @@ import { getProduct } from "../data/products.js";
 import { sendOrderEmail } from "../lib/orderMailer.js";
 
 const router = Router();
+
+// Maximum number of order numbers accepted in one history request.
+const MAX_HISTORY_ORDERS = 50;
 
 // ---- Business rules (single source of truth on the server) ----
 const DELIVERY_METHODS = {
@@ -80,6 +87,18 @@ const codeLimiter = rateLimit({
   },
 });
 
+const historyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many order history requests. Please try again later.",
+  },
+});
+
 // ---- Validation helpers ----
 function str(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -96,6 +115,59 @@ function maskEmail(email) {
   const at = email.indexOf("@");
   if (at <= 1) return "***@***";
   return `${email.slice(0, 2)}***${email.slice(at)}`;
+}
+
+// Accept a raw order number list from the browser, normalise it (trim +
+// uppercase), drop duplicates and return the clean array. Anything that is
+// not a valid StyleStore order number rejects the whole request, and the
+// callers cap the total length separately.
+function sanitizeOrderNumbers(raw) {
+  if (!Array.isArray(raw)) return null;
+  const result = [];
+  const seen = new Set();
+  for (const value of raw) {
+    const orderNumber = str(value).toUpperCase();
+    if (!/^SS-\d{8}-[A-Z0-9]{5}$/.test(orderNumber)) return null;
+    if (seen.has(orderNumber)) continue;
+    seen.add(orderNumber);
+    result.push(orderNumber);
+  }
+  return result;
+}
+
+// Build the safe, frontend-facing order object from an `orders` row and its
+// matching `order_items` rows. Personal data (email, name, address, phone)
+// is intentionally NOT included — history/lookup responses only carry what
+// the order cards need.
+function buildOrderFromRows(orderRow, itemRows) {
+  const paymentMethod = PAYMENT_FROM_DB[orderRow.payment_method] || orderRow.payment_method;
+  return {
+    orderNumber: orderRow.order_number,
+    deliveryMethod: orderRow.delivery_method,
+    deliveryLabel: DELIVERY_METHODS[orderRow.delivery_method]?.label || orderRow.delivery_method,
+    paymentMethod,
+    paymentLabel: PAYMENT_METHODS[paymentMethod] || orderRow.payment_method,
+    subtotal: Number(orderRow.subtotal),
+    discount: Number(orderRow.discount),
+    discountCode: orderRow.discount_code || null,
+    shipping: Number(orderRow.shipping_fee),
+    total: Number(orderRow.total),
+    status: orderRow.status,
+    createdAt: orderRow.created_at,
+    items: itemRows.map((item) => {
+      const unitPrice = Number(item.unit_price);
+      const quantity = Number(item.quantity);
+      return {
+        productId: String(item.product_id),
+        productName: item.product_name,
+        size: item.size,
+        color: item.color,
+        quantity,
+        unitPrice,
+        lineTotal: Math.round(unitPrice * quantity),
+      };
+    }),
+  };
 }
 
 // Unique, human-readable order number: SS-YYYYMMDD-XXXXX
@@ -428,44 +500,20 @@ router.get("/orders/:orderNumber", async (req, res) => {
     }
 
     const [itemRows] = await pool.execute(
-      `SELECT product_name, size, color, quantity, unit_price
+      `SELECT product_id, product_name, size, color, quantity, unit_price
          FROM order_items WHERE order_id = (
            SELECT id FROM orders WHERE order_number = ? LIMIT 1
          )`,
       [orderNumber]
     );
 
-    const order = orderRows[0];
-    const paymentMethod = PAYMENT_FROM_DB[order.payment_method] || order.payment_method;
+    const order = buildOrderFromRows(orderRows[0], itemRows);
     return res.status(200).json({
       success: true,
       order: {
-        orderNumber: order.order_number,
-        firstName: order.first_name,
-        email: order.email,
-        deliveryMethod: order.delivery_method,
-        deliveryLabel: DELIVERY_METHODS[order.delivery_method]?.label || order.delivery_method,
-        paymentMethod,
-        paymentLabel: PAYMENT_METHODS[paymentMethod] || order.payment_method,
-        subtotal: Number(order.subtotal),
-        discount: Number(order.discount),
-        discountCode: order.discount_code || null,
-        shipping: Number(order.shipping_fee),
-        total: Number(order.total),
-        status: order.status,
-        createdAt: order.created_at,
-        items: itemRows.map((item) => {
-          const unitPrice = Number(item.unit_price);
-          const quantity = Number(item.quantity);
-          return {
-            productName: item.product_name,
-            size: item.size,
-            color: item.color,
-            quantity,
-            unitPrice,
-            lineTotal: Math.round(unitPrice * quantity),
-          };
-        }),
+        ...order,
+        firstName: orderRows[0].first_name,
+        email: orderRows[0].email,
       },
     });
   } catch (error) {
@@ -474,6 +522,126 @@ router.get("/orders/:orderNumber", async (req, res) => {
       success: false,
       code: "DB_UNAVAILABLE",
       message: "The checkout service is temporarily unavailable. Please try again shortly.",
+    });
+  }
+});
+
+router.post("/orders/history", historyLimiter, async (req, res) => {
+  // Browser-supplied order numbers only. Each is validated, so the query can
+  // never contain arbitrary SQL or reveal orders the browser did not ask for.
+  const orderNumbers = sanitizeOrderNumbers(req.body?.orderNumbers);
+  if (!orderNumbers) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_ORDER_NUMBERS",
+      message: "Please provide a valid list of order numbers.",
+    });
+  }
+  if (orderNumbers.length > MAX_HISTORY_ORDERS) {
+    return res.status(400).json({
+      success: false,
+      code: "TOO_MANY_ORDERS",
+      message: "Too many order numbers in one request.",
+    });
+  }
+  if (orderNumbers.length === 0) {
+    return res.status(200).json({ success: true, orders: [] });
+  }
+
+  try {
+    // Parameterised `IN (...)` so no raw values ever reach the SQL string.
+    const orderPlaceholders = orderNumbers.map(() => "?").join(", ");
+    const [orderRows] = await pool.execute(
+      `SELECT id, order_number, delivery_method, payment_method, subtotal,
+              discount, shipping_fee, total, discount_code, status, created_at
+         FROM orders WHERE order_number IN (${orderPlaceholders})
+         ORDER BY created_at DESC, id DESC`,
+      orderNumbers
+    );
+
+    let orders = [];
+    if (orderRows.length > 0) {
+      const ids = orderRows.map((row) => row.id);
+      const idPlaceholders = ids.map(() => "?").join(", ");
+      const [itemRows] = await pool.execute(
+        `SELECT order_id, product_id, product_name, size, color, quantity, unit_price
+           FROM order_items WHERE order_id IN (${idPlaceholders})`,
+        ids
+      );
+
+      const itemsByOrder = new Map();
+      for (const item of itemRows) {
+        const list = itemsByOrder.get(item.order_id) || [];
+        list.push(item);
+        itemsByOrder.set(item.order_id, list);
+      }
+
+      orders = orderRows.map((row) => buildOrderFromRows(row, itemsByOrder.get(row.id) || []));
+    }
+
+    return res.status(200).json({ success: true, orders });
+  } catch (error) {
+    console.error("[orders] history lookup failed:", error?.message ?? "unknown");
+    return res.status(503).json({
+      success: false,
+      code: "DB_UNAVAILABLE",
+      message: "The order history service is temporarily unavailable. Please try again shortly.",
+    });
+  }
+});
+
+router.post("/orders/lookup", historyLimiter, async (req, res) => {
+  // A new-device lookup needs BOTH the order number and the exact checkout
+  // email. An email alone can never reveal somebody else's order.
+  const orderNumber = str(req.body?.orderNumber).toUpperCase();
+  const email = str(req.body?.email).toLowerCase();
+
+  if (!/^SS-\d{8}-[A-Z0-9]{5}$/.test(orderNumber)) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_ORDER_NUMBER",
+      message: "Please enter a valid order number.",
+    });
+  }
+  if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_EMAIL",
+      message: "Please enter the email address used at checkout.",
+    });
+  }
+
+  try {
+    const [orderRows] = await pool.execute(
+      `SELECT id, order_number, delivery_method, payment_method, subtotal,
+              discount, shipping_fee, total, discount_code, status, created_at
+         FROM orders WHERE order_number = ? AND email = ? LIMIT 1`,
+      [orderNumber, email]
+    );
+    if (orderRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        code: "ORDER_NOT_FOUND",
+        message: "We couldn't find an order matching that order number and email.",
+      });
+    }
+
+    const [itemRows] = await pool.execute(
+      `SELECT product_id, product_name, size, color, quantity, unit_price
+         FROM order_items WHERE order_id = ?`,
+      [orderRows[0].id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      order: buildOrderFromRows(orderRows[0], itemRows),
+    });
+  } catch (error) {
+    console.error("[orders] lookup by email failed:", error?.message ?? "unknown");
+    return res.status(503).json({
+      success: false,
+      code: "DB_UNAVAILABLE",
+      message: "The order look-up service is temporarily unavailable. Please try again shortly.",
     });
   }
 });

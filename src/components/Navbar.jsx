@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Heart,
   Menu,
+  ReceiptText,
   Search,
   ShoppingBag,
   User,
@@ -23,6 +25,7 @@ function Navbar({
 }) {
   // Mobile hamburger menu state.
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Active link + navigation handler. Keeps the header in sync
   // with where the user is on the page.
@@ -118,6 +121,15 @@ function Navbar({
             {/* Account */}
             <button className="icon-button" aria-label="My account">
               <User size={20} strokeWidth={1.8} />
+            </button>
+
+            {/* My Orders */}
+            <button
+              className="icon-button"
+              aria-label="My orders"
+              onClick={() => navigate("/orders")}
+            >
+              <ReceiptText size={20} strokeWidth={1.8} />
             </button>
 
             {/* Wishlist with count */}

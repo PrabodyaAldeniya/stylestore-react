@@ -31,6 +31,7 @@ import {
   previewDiscount,
 } from "../lib/checkout";
 import { validateDiscount, placeOrder } from "../lib/checkoutApi";
+import { addOrderNumber } from "../lib/orderHistoryStorage";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_PATTERN = /^[\p{L}\p{M}' -]{2,80}$/u;
@@ -255,6 +256,10 @@ function Checkout() {
 
     if (ok && data?.order) {
       clearCart();
+      // Remember this order in localStorage for the My Orders page. This
+      // happens before clearing the cart and uses its own storage key, so
+      // clearing the bag never removes saved order numbers.
+      addOrderNumber(data.order.orderNumber);
       navigate(`/order-success/${data.order.orderNumber}`, {
         state: { order: data.order },
         replace: true,
