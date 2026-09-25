@@ -22,10 +22,10 @@ async function request(path, { method = "GET", body } = {}) {
   return { ok: response.ok, status: response.status, data };
 }
 
-export async function validateDiscount(code) {
+export async function validateDiscount(code, email = "") {
   return request("/api/orders/discount-code", {
     method: "POST",
-    body: { code },
+    body: { code, email },
   });
 }
 

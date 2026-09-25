@@ -63,6 +63,52 @@ const CITY_PATTERN = /^[\p{L}\p{M}' .-]{2,100}$/u;
 const ADDRESS_PATTERN = /^[\p{L}\p{M}0-9' .#,/-]{5,255}$/u;
 const CODE_PATTERN = /^[A-Z0-9]{3,30}$/;
 
+// ---- Discount code validation ----
+// A discount code can be rejected for one of four reasons, each of which gets
+// its own HTTP status + code so the checkout can show a precise message:
+//   INVALID_CODE       — format error (client-made)
+//   CODE_NOT_FOUND     — no matching row in discount_codes
+//   CODE_EXPIRED       — disabled (active = 0) or past expires_at
+//   CODE_ALREADY_USED  — global cap hit, or this email already used it
+const DISCOUNT_REJECTION_MESSAGES = {
+  CODE_NOT_FOUND: "That discount code isn't valid. Remove it to continue.",
+  CODE_EXPIRED: "That discount code has expired. Remove it to continue.",
+  CODE_ALREADY_USED: "That discount code has already been used. Remove it to continue.",
+};
+
+const DISCOUNT_REJECTION_CODES = new Set([
+  "CODE_NOT_FOUND",
+  "CODE_EXPIRED",
+  "CODE_ALREADY_USED",
+]);
+
+// Build an error the transaction catching block can recognise so it can send
+// the right status/code instead of a generic "could not save".
+function rejectDiscount(code) {
+  const error = new Error(`Discount rejected: ${code}`);
+  error.discountRejection = code;
+  return error;
+}
+
+// A code row is "expired" (no longer usable) when it is disabled or its
+// expiry date has passed. mysql2 returns DATETIME as a JS Date, but strings
+// are also accepted so the helper is robust either way.
+function isCodeExpired(row, now = new Date()) {
+  if (!row) return true;
+  if (Number(row.active) !== 1) return true;
+  if (row.expires_at) {
+    const expires = row.expires_at instanceof Date ? row.expires_at : new Date(row.expires_at);
+    if (!Number.isNaN(expires.getTime()) && expires.getTime() <= now.getTime()) return true;
+  }
+  return false;
+}
+
+// True when a global redemption cap (max_uses/times_used) has been reached.
+function isCodeExhausted(row) {
+  if (row.max_uses === null || row.max_uses === undefined) return false;
+  return Number(row.times_used) >= Number(row.max_uses);
+}
+
 const orderLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -227,6 +273,10 @@ function computeTotals({ items, discountPercent, deliveryMethod }) {
 router.post("/orders/discount-code", codeLimiter, async (req, res) => {
   const raw = str(req.body?.code);
   const code = raw.toUpperCase();
+  // The checkout email lets us enforce "one use per customer" (NEWUSER is a
+  // first-order code). When no valid email is supplied, only the global and
+  // expiry checks below run; order placement still enforces per-email usage.
+  const email = str(req.body?.email).toLowerCase();
 
   if (!CODE_PATTERN.test(code)) {
     return res.status(400).json({
@@ -238,20 +288,51 @@ router.post("/orders/discount-code", codeLimiter, async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      "SELECT code, percent_off FROM discount_codes WHERE code = ? AND active = 1 LIMIT 1",
+      `SELECT code, percent_off, active, expires_at, max_uses, times_used
+         FROM discount_codes WHERE code = ? LIMIT 1`,
       [code]
     );
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
         code: "CODE_NOT_FOUND",
-        message: "That discount code isn't valid or has expired.",
+        message: "That discount code isn't valid.",
       });
     }
-    const percent = Math.min(Number(rows[0].percent_off) || 0, MAX_DISCOUNT_PERCENT);
+
+    const row = rows[0];
+    if (isCodeExpired(row)) {
+      return res.status(410).json({
+        success: false,
+        code: "CODE_EXPIRED",
+        message: "That discount code has expired.",
+      });
+    }
+    if (isCodeExhausted(row)) {
+      return res.status(409).json({
+        success: false,
+        code: "CODE_ALREADY_USED",
+        message: "That discount code has already been used.",
+      });
+    }
+    if (EMAIL_PATTERN.test(email)) {
+      const [usedRows] = await pool.execute(
+        "SELECT id FROM orders WHERE email = ? AND discount_code = ? LIMIT 1",
+        [email, row.code]
+      );
+      if (usedRows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          code: "CODE_ALREADY_USED",
+          message: "That discount code has already been used.",
+        });
+      }
+    }
+
+    const percent = Math.min(Number(row.percent_off) || 0, MAX_DISCOUNT_PERCENT);
     return res.status(200).json({
       success: true,
-      code: rows[0].code,
+      code: row.code,
       percentOff: percent,
     });
   } catch (error) {
@@ -326,21 +407,14 @@ router.post("/orders", orderLimiter, async (req, res) => {
         message: "Please enter a valid discount code.",
       });
     }
+    let codeRow;
     try {
       const [rows] = await pool.execute(
-        "SELECT code, percent_off FROM discount_codes WHERE code = ? AND active = 1 LIMIT 1",
+        `SELECT code, percent_off, active, expires_at, max_uses, times_used
+           FROM discount_codes WHERE code = ? LIMIT 1`,
         [rawCode]
       );
-      if (rows.length > 0) {
-        discountCode = rows[0].code;
-        discountPercent = Math.min(Number(rows[0].percent_off) || 0, MAX_DISCOUNT_PERCENT);
-      } else {
-        return res.status(400).json({
-          success: false,
-          code: "INVALID_CODE",
-          message: "That discount code isn't valid or has expired.",
-        });
-      }
+      codeRow = rows[0] || null;
     } catch (error) {
       console.error("[orders] discount lookup failed:", error?.message ?? "unknown");
       return res.status(503).json({
@@ -349,6 +423,33 @@ router.post("/orders", orderLimiter, async (req, res) => {
         message: "The checkout service is temporarily unavailable. Please try again shortly.",
       });
     }
+
+    if (!codeRow) {
+      return res.status(400).json({
+        success: false,
+        code: "CODE_NOT_FOUND",
+        message: DISCOUNT_REJECTION_MESSAGES.CODE_NOT_FOUND,
+      });
+    }
+    if (isCodeExpired(codeRow)) {
+      return res.status(400).json({
+        success: false,
+        code: "CODE_EXPIRED",
+        message: DISCOUNT_REJECTION_MESSAGES.CODE_EXPIRED,
+      });
+    }
+    if (isCodeExhausted(codeRow)) {
+      return res.status(400).json({
+        success: false,
+        code: "CODE_ALREADY_USED",
+        message: DISCOUNT_REJECTION_MESSAGES.CODE_ALREADY_USED,
+      });
+    }
+    // Per-email "already used" is enforced inside the transaction below
+    // (authoritative), because only the saved order itself can prove that a
+    // given email has already redeemed the code.
+    discountCode = codeRow.code;
+    discountPercent = Math.min(Number(codeRow.percent_off) || 0, MAX_DISCOUNT_PERCENT);
   }
 
   // 5. Server-side totals.
@@ -368,6 +469,40 @@ router.post("/orders", orderLimiter, async (req, res) => {
 
   try {
     await connection.beginTransaction();
+
+    // Enforce ALL discount usage rules inside the transaction, where row
+    // locks are held, so two simultaneous orders can never both redeem the
+    // same code. A failure here throws a recognised discount rejection, which
+    // the catch block below maps to a precise response (and the rollback
+    // undoes the times_used increment).
+    if (discountCode) {
+      const [codeRows] = await connection.execute(
+        `SELECT id, active, expires_at, max_uses, times_used
+           FROM discount_codes WHERE code = ? LIMIT 1 FOR UPDATE`,
+        [discountCode]
+      );
+      const currentRow = codeRows[0];
+      if (!currentRow) {
+        throw rejectDiscount("CODE_NOT_FOUND");
+      }
+      if (isCodeExpired(currentRow)) {
+        throw rejectDiscount("CODE_EXPIRED");
+      }
+      if (isCodeExhausted(currentRow)) {
+        throw rejectDiscount("CODE_ALREADY_USED");
+      }
+      const [usedRows] = await connection.execute(
+        "SELECT id FROM orders WHERE email = ? AND discount_code = ? LIMIT 1 FOR UPDATE",
+        [email, discountCode]
+      );
+      if (usedRows.length > 0) {
+        throw rejectDiscount("CODE_ALREADY_USED");
+      }
+      await connection.execute(
+        "UPDATE discount_codes SET times_used = times_used + 1 WHERE id = ?",
+        [currentRow.id]
+      );
+    }
 
     // Generating the order number here means a unique-key collision can
     // only happen on a race; retry a few times inside the transaction.
@@ -433,6 +568,13 @@ router.post("/orders", orderLimiter, async (req, res) => {
     await connection.commit();
   } catch (error) {
     await connection.rollback();
+    if (DISCOUNT_REJECTION_CODES.has(error?.discountRejection)) {
+      return res.status(400).json({
+        success: false,
+        code: error.discountRejection,
+        message: DISCOUNT_REJECTION_MESSAGES[error.discountRejection],
+      });
+    }
     console.error("[orders] transaction failed:", error?.message ?? "unknown");
     return res.status(500).json({
       success: false,

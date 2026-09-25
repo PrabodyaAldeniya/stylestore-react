@@ -78,12 +78,19 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- --------------------------------------------------------
 -- Discount codes — server-validated percentage discounts.
+-- `expires_at` optionally stops a code after a date;
+-- `max_uses`/`times_used` optionally cap total redemptions.
+-- NEWUSER uses per-email single-use enforcement (checked
+-- against the orders table), so its `max_uses` stays NULL.
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS discount_codes (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   code        VARCHAR(30) NOT NULL,
   percent_off INT UNSIGNED NOT NULL,
   active      TINYINT(1)  NOT NULL DEFAULT 1,
+  expires_at  DATETIME    NULL,
+  max_uses    INT UNSIGNED NULL,
+  times_used  INT UNSIGNED NOT NULL DEFAULT 0,
   description VARCHAR(160) NULL,
   created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -128,5 +135,37 @@ SET @cols := (
 );
 SET @sql := IF(@cols = 0,
   'ALTER TABLE orders ADD COLUMN discount_code VARCHAR(30) NULL AFTER total',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Additive migrations for discount_codes (validity/usage columns) so a table
+-- created before these columns existed is brought up to date safely.
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'discount_codes'
+    AND COLUMN_NAME = 'expires_at'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE discount_codes ADD COLUMN expires_at DATETIME NULL AFTER active',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'discount_codes'
+    AND COLUMN_NAME = 'max_uses'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE discount_codes ADD COLUMN max_uses INT UNSIGNED NULL AFTER expires_at',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'discount_codes'
+    AND COLUMN_NAME = 'times_used'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE discount_codes ADD COLUMN times_used INT UNSIGNED NOT NULL DEFAULT 0 AFTER max_uses',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

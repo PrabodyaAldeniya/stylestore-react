@@ -83,11 +83,18 @@ const STATEMENTS = [
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   // ---- Discount codes (new; used by the existing discount feature) ----
+  // `expires_at` optionally stops a code after a date; `max_uses`/`times_used`
+  // optionally cap the total number of redemptions. NEWUSER uses per-email
+  // single-use enforcement (checked against the orders table), so its
+  // `max_uses` stays NULL (no global cap).
   `CREATE TABLE IF NOT EXISTS ${q("discount_codes")} (
      id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
      code        VARCHAR(30)  NOT NULL,
      percent_off INT UNSIGNED NOT NULL,
      active      TINYINT(1)   NOT NULL DEFAULT 1,
+     expires_at  DATETIME     NULL,
+     max_uses    INT UNSIGNED NULL,
+     times_used  INT UNSIGNED NOT NULL DEFAULT 0,
      description VARCHAR(160) NULL,
      created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
@@ -103,6 +110,15 @@ const ORDER_ADDITIONS = [
   { column: "country", definition: "ADD COLUMN country VARCHAR(60) NOT NULL DEFAULT 'Sri Lanka' AFTER district" },
   { column: "delivery_method", definition: "ADD COLUMN delivery_method VARCHAR(30) NOT NULL DEFAULT 'standard' AFTER payment_method" },
   { column: "discount_code", definition: "ADD COLUMN discount_code VARCHAR(30) NULL AFTER total" },
+];
+
+// Additive migrations for discount_codes so a table created by an older run
+// (without the validity/usage columns) is brought up to date without touching
+// existing rows.
+const DISCOUNT_ADDITIONS = [
+  { column: "expires_at", definition: "ADD COLUMN expires_at DATETIME NULL AFTER active" },
+  { column: "max_uses", definition: "ADD COLUMN max_uses INT UNSIGNED NULL AFTER expires_at" },
+  { column: "times_used", definition: "ADD COLUMN times_used INT UNSIGNED NOT NULL DEFAULT 0 AFTER max_uses" },
 ];
 
 async function ensureColumn(connection, table, column, definition) {
@@ -132,6 +148,9 @@ export async function initializeDatabase() {
     // checkout API writes without touching existing data or tables.
     for (const addition of ORDER_ADDITIONS) {
       await ensureColumn(connection, "orders", addition.column, addition.definition);
+    }
+    for (const addition of DISCOUNT_ADDITIONS) {
+      await ensureColumn(connection, "discount_codes", addition.column, addition.definition);
     }
   } finally {
     await connection.end();

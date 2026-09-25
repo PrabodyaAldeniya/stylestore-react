@@ -44,10 +44,25 @@ const SERVER_MESSAGES = {
   VALIDATION_ERROR: "Please check the highlighted fields.",
   INVALID_ITEMS: "One or more items in your bag are no longer available. Please review and try again.",
   INVALID_CODE: "That discount code isn't valid anymore. Remove it to continue.",
+  CODE_NOT_FOUND: "That discount code isn't valid. Remove it to continue.",
+  CODE_EXPIRED: "That discount code has expired. Remove it to continue.",
+  CODE_ALREADY_USED: "That discount code has already been used. Remove it to continue.",
   RATE_LIMITED: "Too many order attempts. Please wait a moment and try again.",
   DB_UNAVAILABLE: "The checkout service is temporarily unavailable. Please try again shortly.",
   ORDER_SAVE_FAILED: "We couldn't save your order right now. Please try again.",
   INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
+};
+
+// Live feedback when applying a discount code. Each message is tied to the
+// code the API returns so expired / used / invalid codes are explained
+// clearly instead of being lumped into one generic error.
+const DISCOUNT_MESSAGES = {
+  INVALID_CODE: "That discount code isn't valid. Please check and try again.",
+  CODE_NOT_FOUND: "That discount code isn't valid. Please check and try again.",
+  CODE_EXPIRED: "That discount code has expired.",
+  CODE_ALREADY_USED: "That discount code has already been used. You can only use it once.",
+  RATE_LIMITED: "Too many discount checks. Please wait a moment.",
+  DB_UNAVAILABLE: "We couldn't check that code right now. Please try again shortly.",
 };
 
 const EMPTY_FORM = {
@@ -200,16 +215,19 @@ function Checkout() {
       setDiscountError("Enter a discount code first.");
       return;
     }
+    // The server checks "already used" against the checkout email, so the code
+    // can't be meaningfully validated until the email field is filled in.
+    const email = form.email.trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(email)) {
+      setDiscountError("Enter your email address in the Contact section before applying a discount code.");
+      return;
+    }
     setDiscountBusy(true);
-    const { ok, data } = await validateDiscount(code);
+    const { ok, data } = await validateDiscount(code, email);
     setDiscountBusy(false);
     if (!ok) {
       setDiscount(null);
-      setDiscountError(
-        data?.code === "RATE_LIMITED"
-          ? "Too many discount checks. Please wait a moment."
-          : "That discount code isn't valid or has expired."
-      );
+      setDiscountError(DISCOUNT_MESSAGES[data?.code] || DISCOUNT_MESSAGES.DB_UNAVAILABLE);
       return;
     }
     setDiscount({ code: data.code, percentOff: Number(data.percentOff) || 0 });
@@ -270,6 +288,9 @@ function Checkout() {
     setServerError(
       SERVER_MESSAGES[data?.code] || data?.message || SERVER_MESSAGES.INTERNAL_ERROR
     );
+    if (data && ["INVALID_CODE", "CODE_NOT_FOUND", "CODE_EXPIRED", "CODE_ALREADY_USED"].includes(data.code)) {
+      removeDiscount();
+    }
     if (data?.fields && typeof data.fields === "object") {
       setErrors((e) => ({ ...e, ...data.fields }));
       const first = FIELD_ORDER.find((key) => data.fields[key]);
