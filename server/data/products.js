@@ -26,6 +26,15 @@ const products = [
   { id: 13, name: "Cozy Fleece Hoodie", price: 5200 },
   { id: 14, name: "Kids Hoodie in Butterscotch", price: 4600 },
   { id: 15, name: "Linen Overshirt", price: 9900 },
+  { id: 16, name: "Floral Meadow Maxi Dress", price: 8400 },
+  { id: 17, name: "Silk Slip Midi Dress", price: 9600 },
+  { id: 18, name: "Golden Hour Wrap Dress", price: 7400 },
+  { id: 19, name: "Satin Skater Dress", price: 6900 },
+  { id: 20, name: "Blush Pink Wool Coat", price: 18500 },
+  { id: 21, name: "Essential Heavyweight Tee", price: 3200 },
+  { id: 22, name: "Resort Camp Shirt", price: 7200 },
+  { id: 23, name: "Heritage Trucker Jacket", price: 13400 },
+  { id: 24, name: "Kids Cloud Cotton Set", price: 3900 },
 ];
 
 const byId = new Map(products.map((product) => [product.id, product]));

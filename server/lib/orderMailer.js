@@ -27,7 +27,7 @@ const BANK_INSTRUCTIONS =
   "After depositing, send a screenshot and your order number to +94 77 000 0000 (WhatsApp).";
 
 function money(value) {
-  return "LKR " + Math.round(value).toLocaleString("en-LK");
+  return "Rs. " + Math.round(value).toLocaleString("en-LK");
 }
 
 function buildText(order) {

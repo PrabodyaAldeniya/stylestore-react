@@ -31,7 +31,7 @@ import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import ToastList from "./components/ToastList";
 
-// Prices in the data file are whole LKR amounts (e.g. 7800 => LKR 7,800).
+// Prices in the data file are whole LKR amounts (e.g. 7800 => Rs. 7,800).
 const catalog = products.map((product) => ({ ...product }));
 
 const ALL_CATEGORIES = ["All", "Women", "Men", "Kids"];
@@ -378,6 +378,7 @@ function App() {
       {/* ---- Quick view ---- */}
       {quickViewProduct && (
         <ProductQuickView
+          key={quickViewProduct.id}
           product={quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
           onAddToBag={handleAddToCart}

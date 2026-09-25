@@ -9,9 +9,12 @@ import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { formatLKR } from "../format";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
-  const SIZES = ["XS", "S", "M", "L", "XL"];
+  const FALLBACK_SIZES = ["XS", "S", "M", "L", "XL"];
 
-  const [size, setSize] = useState("M");
+  const sizes =
+    product.sizes && product.sizes.length > 0 ? product.sizes : FALLBACK_SIZES;
+
+  const [size, setSize] = useState(sizes[1] || sizes[0]);
   const [qty, setQty] = useState(1);
   const [colorIndex, setColorIndex] = useState(0);
 
@@ -87,7 +90,7 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
           <div className="qv-row">
             <span className="filter-label">Size</span>
             <div className="qv-sizes">
-              {SIZES.map((item) => (
+              {sizes.map((item) => (
                 <button
                   key={item}
                   type="button"

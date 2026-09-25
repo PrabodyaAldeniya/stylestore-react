@@ -800,7 +800,7 @@ input, select, textarea {
 }
 
 .product-section-inner {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 clamp(18px, 4vw, 40px);
 }
@@ -808,9 +808,11 @@ input, select, textarea {
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(16px, 2vw, 26px);
+  gap: clamp(14px, 1.8vw, 24px);
   padding: 30px 0 20px;
   align-items: stretch;
+  width: 100%;
+  min-width: 0;
 }
 
 .product-card {
@@ -941,17 +943,17 @@ input, select, textarea {
 .quick-view-btn:hover { background: var(--ink); color: var(--paper); transform: translateY(-1px); }
 .quick-view-btn:active { transform: translateY(1px) scale(0.94); }
 
-.product-info { padding: 12px 4px 4px; display: flex; flex-direction: column; flex: 1; gap: 6px; }
+.product-info { padding: 10px 2px 2px; display: flex; flex-direction: column; flex: 1; gap: 5px; }
 .product-category {
-  font-size: 11px;
-  letter-spacing: 0.22em;
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--sand-mid);
   font-weight: 700;
 }
 .product-info h3 {
   font-family: "Inter", sans-serif;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
@@ -960,26 +962,26 @@ input, select, textarea {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.product-rating { display: flex; align-items: center; gap: 5px; }
-.star { color: #d8d2c4; font-size: 13px; }
+.product-rating { display: flex; align-items: center; gap: 4px; }
+.star { color: #d8d2c4; font-size: 12.5px; }
 .star.filled { color: var(--gold); }
-.rating-count { font-size: 11.5px; color: var(--sand-mid); }
+.rating-count { font-size: 11px; color: var(--sand-mid); }
 
-.product-price { display: flex; align-items: baseline; gap: 8px; margin-top: auto; }
-.price { font-size: 16px; font-weight: 700; color: var(--ink); }
-.old-price { font-size: 13.5px; color: var(--sand-mid); text-decoration: line-through; }
+.product-price { display: flex; align-items: baseline; gap: 7px; margin-top: auto; }
+.price { font-size: 15px; font-weight: 700; color: var(--ink); }
+.old-price { font-size: 12.5px; color: var(--sand-mid); text-decoration: line-through; }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
+  .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 768px) {
-  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 }
 @media (max-width: 340px) {
-  .product-grid { grid-template-columns: 1fr; }
+  .product-grid { grid-template-columns: 1fr; gap: 12px; }
 }
 
 .products-empty {
@@ -1032,7 +1034,7 @@ input, select, textarea {
 }
 @media (max-width: 768px) {
   .category-grid--main { grid-template-columns: repeat(2, 1fr); }
-  .product-grid { grid-template-columns: repeat(2, 1fr); }
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -2282,14 +2284,20 @@ body, #root {
    Placed last so these win over earlier rules.
    ======================================================== */
 
-/* ---- Product grid: desktop 4 / tablet 2 / mobile 1 ---- */
+/* ---- Product grid: desktop 4 / tablet 3 / large-phone 2 / small 1 ---- */
 .product-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
+  .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 340px) {
   .product-grid { grid-template-columns: 1fr; }
 }
 
@@ -2297,13 +2305,13 @@ body, #root {
 .product-colors {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   margin-top: 2px;
 }
 
 .product-color-dot {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   border: 1px solid rgba(24, 19, 27, 0.16);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35),
@@ -2315,7 +2323,7 @@ body, #root {
 .product-card:hover .product-color-dot { transform: translateY(-1px); }
 
 .product-colors-count {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--sand-mid);
   letter-spacing: 0.03em;
