@@ -44,7 +44,7 @@ function App() {
     cartItems,
     cartCount,
     cartTotal,
-    addToCart: handleAddToCart,
+    addToCart,
     increaseQuantity,
     decreaseQuantity,
     removeFromCart,
@@ -137,6 +137,18 @@ function App() {
 
   const dismissToast = (id) =>
     setToasts((current) => current.filter((t) => t.id !== id));
+
+  // ================= CART HANDLER =================
+
+  // Wraps the context addToCart so every Add / Add to Bag click:
+  //   1. adds the product exactly once (context dedupes on size/colour),
+  //   2. instantly opens the existing CartDrawer,
+  //   3. confirms with a small "Added to your bag" toast.
+  const handleAddToCart = (product, options) => {
+    addToCart(product, options);
+    setIsCartOpen(true);
+    pushToast("Added to your bag");
+  };
 
   const scrollToProducts = () => {
     document

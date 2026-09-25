@@ -69,7 +69,21 @@ function CartDrawer({
 
               <div className="cart-item-info">
                 <strong>{item.name}</strong>
-                {item.size && <span className="cart-item-size">Size {item.size}</span>}
+
+                {/* ---- Size + colour ---- */}
+                <div className="cart-item-meta">
+                  {item.size && <span className="cart-item-size">Size {item.size}</span>}
+                  {item.color && (
+                    <span className="cart-item-colour">
+                      <span
+                        className="cart-colour-dot"
+                        style={{ background: item.color }}
+                        aria-hidden="true"
+                      />
+                      Colour
+                    </span>
+                  )}
+                </div>
 
                 <div className="cart-item-qty">
                   <button type="button" onClick={() => onDecrease(item)} aria-label="Decrease quantity">
