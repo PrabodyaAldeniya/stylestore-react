@@ -119,7 +119,9 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
       });
       // The exact wording the shop promises on submission.
       setMessage({ type: "success", text: result.message });
-      if (onDone) onDone(result);
+      // The dialog deliberately stays open: the customer must be able to read
+      // the confirmation before it closes, so `onDone` is only called by the
+      // Close button on the success screen below.
     } catch (error) {
       setFields(error.fields || {});
       setMessage({ type: "error", text: error.message });
