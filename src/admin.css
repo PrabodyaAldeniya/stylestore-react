@@ -1002,7 +1002,7 @@
   margin: 0;
 }
 
-/* ---- Chips / size + colour pickers ---- */
+/* ---- Chips / size picker ---- */
 .adm-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1048,12 +1048,163 @@
   cursor: not-allowed;
 }
 
-.adm-swatch {
-  width: 14px;
-  height: 14px;
+/* ---- Colour selector ----
+   A fluid auto-fill grid so the buttons wrap onto as many rows as the screen
+   needs. Every track is minmax(0, …) and every button can shrink, so the
+   section never forces horizontal scrolling on a phone. */
+.adm-colour-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.adm-colour-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--sand-2);
+  border-radius: 12px;
+  background: var(--warm-white);
+  color: var(--plum);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s var(--ease-out), background 0.16s var(--ease-out),
+    box-shadow 0.16s var(--ease-out), color 0.16s var(--ease-out);
+}
+
+.adm-colour-btn:hover:not(:disabled) {
+  border-color: var(--electric);
+  color: var(--electric);
+}
+
+.adm-colour-btn:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: 2px;
+}
+
+.adm-colour-btn.is-selected {
+  border-color: var(--electric);
+  background: var(--lavender);
+  color: var(--electric-d);
+  box-shadow: inset 0 0 0 1px var(--electric);
+}
+
+.adm-colour-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adm-colour-btn-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-colour-btn-check {
   flex: 0 0 auto;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+/* The circle carries the border that keeps White and Cream visible
+   against the cream admin background. */
+.adm-colour-circle {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(24, 19, 27, 0.22);
   border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    0 1px 2px rgba(24, 19, 27, 0.12);
+}
+
+/* ---- Longer palette, behind a disclosure ---- */
+.adm-colour-more {
+  margin-top: 10px;
+  border: 1px dashed var(--sand-2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.adm-colour-more-summary {
+  padding: 10px 12px;
+  color: var(--plum);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.adm-colour-more-summary:hover {
+  color: var(--electric);
+}
+
+.adm-colour-more[open] .adm-colour-more-summary {
+  border-bottom: 1px dashed var(--sand-2);
+}
+
+.adm-colour-more .adm-colour-grid {
+  padding: 12px;
+}
+
+/* ---- Custom colour name ---- */
+.adm-colour-custom {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--sand-2);
+  border-radius: 14px;
+  background: var(--cream);
+}
+
+.adm-colour-custom .adm-inline-label {
+  flex: none;
+}
+
+.adm-colour-custom-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adm-colour-custom-row input[type="text"] {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.adm-colour-custom .adm-hint {
+  margin: 0;
+}
+
+/* ---- Colours saved to this product ---- */
+.adm-colour-saved {
+  margin-top: 14px;
+}
+
+.adm-colour-saved li .adm-colour-circle {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 560px) {
+  .adm-colour-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 7px;
+  }
+
+  .adm-colour-btn {
+    font-size: 0.78rem;
+  }
 }
 
 .adm-inline-add {
@@ -1070,17 +1221,6 @@
 .adm-inline-add input[type="text"] {
   flex: 1 1 170px;
   min-width: 0;
-}
-
-.adm-colour-picker {
-  flex: 0 0 auto;
-  width: 48px;
-  height: 42px;
-  padding: 4px;
-  border: 1px solid var(--sand-2);
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
 }
 
 .adm-selected {
@@ -1432,6 +1572,25 @@
 .adm-preview-value {
   color: var(--plum);
   overflow-wrap: anywhere;
+}
+
+/* ---- Colours in the preview: circles + names, never codes ---- */
+.adm-preview-colours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.adm-preview-colour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.adm-preview-colour .adm-colour-circle {
+  width: 14px;
+  height: 14px;
 }
 
 .adm-preview-note {

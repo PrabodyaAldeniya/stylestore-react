@@ -22,6 +22,7 @@ import {
 
 import { useCart } from "../context/useCart";
 import { formatLKR } from "../format";
+import { colourSwatch } from "../lib/colours";
 import {
   DELIVERY_METHODS,
   PAYMENT_METHODS,
@@ -640,7 +641,19 @@ function Checkout() {
                     <div className="summary-item-info">
                       <strong>{item.name}</strong>
                       {item.size && <span>Size {item.size}</span>}
-                      {item.color && <span className="summary-color" style={{ background: item.color }} />}
+                      {item.color && (
+                        // The order payload carries the colour NAME, so the
+                        // swatch is resolved from the palette, not from the
+                        // name itself.
+                        <span className="summary-color-row">
+                          <span
+                            className="summary-color"
+                            style={{ background: colourSwatch({ name: item.color, hex: item.colorHex }) }}
+                            aria-hidden="true"
+                          />
+                          Colour {item.color}
+                        </span>
+                      )}
                       <span className="summary-unit-price">{formatLKR(item.price)} each</span>
                     </div>
                     <div className="summary-item-price-col">

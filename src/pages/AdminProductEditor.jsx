@@ -49,7 +49,6 @@ import {
 import {
   ADULT_SIZES,
   calculateDiscountPercent,
-  COLOUR_PRESETS,
   DEFAULT_LOW_STOCK,
   formatBytes,
   MAX_IMAGE_COUNT,
@@ -63,14 +62,20 @@ import {
   suggestedSizes,
   validateImageFile,
 } from "../lib/adminCatalog";
+import {
+  canonicalColourName,
+  MAX_COLOURS,
+  normaliseColourName,
+  resolveColourHex,
+} from "../lib/colours";
 
 import AdminField from "../components/admin/AdminField";
+import ColourSelector from "../components/admin/ColourSelector";
 import FormSection from "../components/admin/FormSection";
 import ImageManager from "../components/admin/ImageManager";
 import ProductPreviewDialog from "../components/admin/ProductPreviewDialog";
 
 const MAX_PRICE = 99_999_999;
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 const EMPTY_FORM = {
   name: "",
@@ -251,7 +256,6 @@ export default function AdminProductEditor() {
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [primary, setPrimary] = useState(null);
   const [customSize, setCustomSize] = useState("");
-  const [colourDraft, setColourDraft] = useState({ name: "", hex: "#7c3aed" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState(null);
@@ -527,32 +531,63 @@ export default function AdminProductEditor() {
   };
 
   // ---- Colours -------------------------------------------------------
-  const addColour = (name, hex) => {
-    const cleanName = String(name || "").trim().slice(0, 50);
-    const cleanHex = String(hex || "").trim().toUpperCase();
-    if (!cleanName) {
-      flash("error", "Type a colour name first, for example Navy.");
-      return;
-    }
-    if (cleanHex && !HEX.test(cleanHex)) {
-      flash("error", "Colour swatches must look like #1F2A44.");
-      return;
-    }
+  // The owner only ever works with colour NAMES. `lib/colours` turns a name
+  // into the internal hex value the API expects, and we keep storing
+  // `{ name, hex }` exactly as before so existing products are untouched.
+  const addColourByName = (rawName) => {
+    const cleanName = normaliseColourName(rawName);
+    if (!cleanName) return false;
     if (
       form.colours.some(
         (colour) => colour.name.toLowerCase() === cleanName.toLowerCase()
       )
     ) {
-      flash("info", `Colour "${cleanName}" is already added.`);
-      return;
+      flash("info", `Colour "${cleanName}" is already selected.`);
+      return false;
+    }
+    // The API keeps at most MAX_COLOURS per product, so stop here rather than
+    // let the save quietly drop the extras.
+    if (form.colours.length >= MAX_COLOURS) {
+      flash(
+        "error",
+        `You can save up to ${MAX_COLOURS} colours on one product. Remove one first, then add "${cleanName}".`
+      );
+      return false;
     }
     update({
-      colours: [...form.colours, { name: cleanName, hex: cleanHex || "" }],
+      colours: [...form.colours, { name: cleanName, hex: resolveColourHex(cleanName) }],
     });
+    return true;
   };
 
-  const removeColour = (name) => {
-    update({ colours: form.colours.filter((colour) => colour.name !== name) });
+  const toggleColour = (name) => {
+    const target = String(name || "").trim().toLowerCase();
+    const exists = form.colours.some(
+      (colour) => colour.name.toLowerCase() === target
+    );
+    if (exists) {
+      update({
+        colours: form.colours.filter(
+          (colour) => colour.name.toLowerCase() !== target
+        ),
+      });
+      return;
+    }
+    addColourByName(name);
+  };
+
+  // A colour typed into the "Custom colour name" box. Common names such as
+  // "Red" or "Off White" are matched to a palette entry so the stored hex
+  // always makes sense; anything else is stored by name alone.
+  const addCustomColour = (name) => {
+    const cleanName = normaliseColourName(name);
+    const mapped = canonicalColourName(cleanName);
+    if (addColourByName(cleanName) && !mapped) {
+      flash(
+        "info",
+        `"${cleanName}" was added. It will show on the product exactly as you typed it.`
+      );
+    }
   };
 
   // ---- Save ----------------------------------------------------------
@@ -1084,102 +1119,18 @@ export default function AdminProductEditor() {
             </ul>
           )}
 
-          <AdminField
+          <ColourSelector
             id="adm-colours"
             label="Colours"
             required
             error={fieldErrors.colours}
             errorKey="colours"
-            hint="Add a name and pick a swatch so customers can see the real shade."
-          >
-            <div className="adm-chips" role="group" aria-label="Suggested colours">
-              {COLOUR_PRESETS.slice(0, 12).map((colour) => (
-                <button
-                  key={colour.name}
-                  type="button"
-                  className="adm-chip adm-chip-colour"
-                  onClick={() => addColour(colour.name, colour.hex)}
-                  disabled={saving}
-                >
-                  <span
-                    className="adm-swatch"
-                    style={{ backgroundColor: colour.hex }}
-                    aria-hidden
-                  />
-                  {colour.name}
-                </button>
-              ))}
-            </div>
-          </AdminField>
-
-          <div className="adm-inline-add">
-            <label className="adm-inline-label" htmlFor="adm-colour-name">
-              Add a colour
-            </label>
-            <input
-              id="adm-colour-name"
-              type="text"
-              value={colourDraft.name}
-              maxLength={50}
-              placeholder="Colour name"
-              onChange={(event) =>
-                setColourDraft({ ...colourDraft, name: event.target.value })
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addColour(colourDraft.name, colourDraft.hex);
-                  setColourDraft({ name: "", hex: colourDraft.hex });
-                }
-              }}
-            />
-            <input
-              type="color"
-              className="adm-colour-picker"
-              value={HEX.test(colourDraft.hex) ? colourDraft.hex : "#7c3aed"}
-              aria-label="Colour swatch"
-              onChange={(event) =>
-                setColourDraft({ ...colourDraft, hex: event.target.value.toUpperCase() })
-              }
-            />
-            <button
-              type="button"
-              className="adm-button adm-button-ghost"
-              onClick={() => {
-                addColour(colourDraft.name, colourDraft.hex);
-                setColourDraft({ name: "", hex: colourDraft.hex });
-              }}
-              disabled={saving || !colourDraft.name.trim()}
-            >
-              <Plus size={15} aria-hidden /> Add colour
-            </button>
-          </div>
-
-          {form.colours.length > 0 && (
-            <ul className="adm-selected">
-              {form.colours.map((colour) => (
-                <li key={colour.name}>
-                  <span
-                    className="adm-swatch"
-                    style={{ backgroundColor: colour.hex || "#ffffff" }}
-                    aria-hidden
-                  />
-                  <span>
-                    {colour.name}
-                    {colour.hex ? ` ${colour.hex}` : ""}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeColour(colour.name)}
-                    disabled={saving}
-                    aria-label={`Remove colour ${colour.name}`}
-                  >
-                    <X size={13} aria-hidden />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            hint="Tap a colour to select it, tap it again to deselect it. Customers choose from these in Quick View."
+            colours={form.colours}
+            onToggle={toggleColour}
+            onAddCustom={addCustomColour}
+            disabled={saving}
+          />
         </FormSection>
 
         {/* ============ 5. STOCK ============ */}

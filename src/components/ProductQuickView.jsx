@@ -2,14 +2,24 @@
 import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 
 import { formatLKR } from "../format";
+import { colourLabel, colourSwatch } from "../lib/colours";
 import { ProductImage } from "./ProductCard";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
   const sizes = hasSizes ? product.sizes : ["One size"];
-  const colours = product.colorOptions?.length
+  // `colorOptions` is the current [{ name, hex }] shape; `colors` is the
+  // legacy hex-only list. `name` stays exactly as the API stored it, because
+  // the API matches the chosen variant by that exact string when the order is
+  // placed. `label` is the friendlier name used for display only.
+  const colours = (product.colorOptions?.length
     ? product.colorOptions
-    : (product.colors || []).map((hex) => ({ name: hex, hex }));
+    : (product.colors || []).map((hex) => ({ name: hex, hex }))
+  ).map((colour) => ({
+    name: String(colour.name || colour.hex || "").trim(),
+    label: colourLabel(colour),
+    hex: colourSwatch(colour),
+  }));
   const [size, setSize] = useState(sizes[0]);
   const [qty, setQty] = useState(1);
   const [colorIndex, setColorIndex] = useState(0);
@@ -69,15 +79,19 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
 
           {colours.length > 0 && (
             <div className="qv-row">
-              <span className="filter-label">Colour{selectedColour ? `: ${selectedColour.name}` : ""}</span>
+              <span className="filter-label">
+                Colour{selectedColour ? `: ${selectedColour.label}` : ""}
+              </span>
               <div className="qv-colors">
                 {colours.map((colour, index) => (
                   <button
                     key={colour.name || colour.hex || index}
                     type="button"
                     className={index === colorIndex ? "qv-color sel" : "qv-color"}
-                    style={{ background: colour.hex || "transparent" }}
-                    aria-label={colour.name || `Colour ${index + 1}`}
+                    style={{ background: colour.hex }}
+                    title={colour.label}
+                    aria-label={colour.label || `Colour ${index + 1}`}
+                    aria-pressed={index === colorIndex}
                     onClick={() => setColorIndex(index)}
                   >
                     {index === colorIndex && (

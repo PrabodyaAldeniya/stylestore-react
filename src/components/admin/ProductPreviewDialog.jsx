@@ -7,6 +7,7 @@ import { Info, X } from "lucide-react";
 import { formatLKR } from "../../format";
 import { ProductImage } from "../ProductCard";
 import { STOCK_STATE_LABELS, stockState } from "../../lib/adminCatalog";
+import { colourLabel, colourSwatch } from "../../lib/colours";
 
 function PreviewRow({ label, children }) {
   return (
@@ -81,15 +82,22 @@ function ProductPreviewDialog({ product, onClose }) {
               {product.sizes?.length ? product.sizes.join(", ") : "—"}
             </PreviewRow>
             <PreviewRow label="Colours">
-              {product.colours?.length
-                ? product.colours
-                    .map((colour) =>
-                      colour.hex
-                        ? `${colour.name} (${colour.hex})`
-                        : colour.name
-                    )
-                    .join(", ")
-                : "—"}
+              {product.colours?.length ? (
+                <span className="adm-preview-colours">
+                  {product.colours.map((colour) => (
+                    <span className="adm-preview-colour" key={colour.name}>
+                      <span
+                        className="adm-colour-circle"
+                        style={{ backgroundColor: colourSwatch(colour) }}
+                        aria-hidden="true"
+                      />
+                      {colourLabel(colour)}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                "—"
+              )}
             </PreviewRow>
             <PreviewRow label="Stock">
               {product.stockQuantity} in stock · {STOCK_STATE_LABELS[state]}

@@ -72,33 +72,8 @@ export function suggestedSizes(category) {
   return ADULT_SIZES;
 }
 
-export const COLOUR_PRESETS = [
-  { name: "Black", hex: "#1e1e1e" },
-  { name: "White", hex: "#ffffff" },
-  { name: "Ivory", hex: "#f7f1e3" },
-  { name: "Cream", hex: "#f3e9d8" },
-  { name: "Beige", hex: "#d9c8b8" },
-  { name: "Sand", hex: "#d9c39a" },
-  { name: "Mustard", hex: "#d9a441" },
-  { name: "Brown", hex: "#6b4a2f" },
-  { name: "Coffee", hex: "#4a342a" },
-  { name: "Maroon", hex: "#7b1e2b" },
-  { name: "Wine", hex: "#5c1233" },
-  { name: "Rust", hex: "#b4531f" },
-  { name: "Red", hex: "#d92d20" },
-  { name: "Pink", hex: "#f2a1b6" },
-  { name: "Peach", hex: "#f7c9a3" },
-  { name: "Lavender", hex: "#cbb6f2" },
-  { name: "Purple", hex: "#7c3aed" },
-  { name: "Navy", hex: "#1f2a44" },
-  { name: "Blue", hex: "#2f6fb5" },
-  { name: "Sky Blue", hex: "#7fb2e5" },
-  { name: "Teal", hex: "#167d8c" },
-  { name: "Green", hex: "#2f8f4e" },
-  { name: "Olive", hex: "#6b7a3a" },
-  { name: "Yellow", hex: "#f5c518" },
-  { name: "Grey", hex: "#8a8a8a" },
-];
+// Colour presets now live in ./colours.js, which also owns the name → hex
+// auto-mapping and the display helpers the storefront needs.
 
 export const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
 export const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];

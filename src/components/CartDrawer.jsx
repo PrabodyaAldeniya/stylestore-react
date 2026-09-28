@@ -5,6 +5,7 @@
 ============================================ */
 import { Box, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { FREE_DELIVERY_THRESHOLD, formatLKR } from "../format";
+import { colourSwatch } from "../lib/colours";
 
 const itemKey = (item) =>
   `${item.id}|${item.size || "none"}|${item.color || "none"}`;
@@ -81,9 +82,11 @@ function CartDrawer({
                   {item.size && <span className="cart-item-size">Size {item.size}</span>}
                   {item.color && (
                     <span className="cart-item-colour">
+                      {/* The cart stores the colour NAME; the swatch falls back
+                          to the palette when no hex travelled with it. */}
                       <span
                         className="cart-colour-dot"
-                        style={{ background: item.colorHex || (/^#[0-9a-f]{3,6}$/i.test(item.color || "") ? item.color : "transparent") }}
+                        style={{ background: colourSwatch({ name: item.color, hex: item.colorHex }) }}
                         aria-hidden="true"
                       />
                       Colour {item.color}

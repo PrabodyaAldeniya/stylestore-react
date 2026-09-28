@@ -2,6 +2,7 @@
 import { Box, Eye, Heart, ShoppingBag } from "lucide-react";
 
 import { formatLKR } from "../format";
+import { colourLabel, colourSwatch } from "../lib/colours";
 
 function ProductImage({ src, alt }) {
   const [failed, setFailed] = useState(false);
@@ -40,9 +41,12 @@ function ProductCard({
     (product.oldPrice
       ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
       : 0);
+  // `colorOptions` is the current [{ name, hex }] shape; `colors` is the
+  // legacy hex-only list. `colourLabel` turns either into a real name.
   const colours = product.colorOptions?.length
     ? product.colorOptions
     : (product.colors || []).map((hex) => ({ hex, name: hex }));
+  const colourNames = colours.map((colour) => colourLabel(colour));
   const hasVariantOptions = product.sizes?.length > 0 || colours.length > 0;
   const isOutOfStock = product.isOutOfStock || Number(product.stockQuantity) <= 0;
   // "Featured" is the flag the admin form toggles and the one the default
@@ -126,14 +130,14 @@ function ProductCard({
           <div
             className="product-colors"
             role="img"
-            aria-label={`${colours.length} available colour${colours.length === 1 ? "" : "s"}`}
+            aria-label={`${colours.length} available colour${colours.length === 1 ? "" : "s"}: ${colourNames.join(", ")}`}
           >
-            {colours.slice(0, 5).map((colour) => (
+            {colours.slice(0, 5).map((colour, index) => (
               <span
-                key={colour.name || colour.hex}
+                key={colour.name || colour.hex || index}
                 className="product-color-dot"
-                style={{ backgroundColor: colour.hex || "transparent" }}
-                title={colour.name}
+                style={{ backgroundColor: colourSwatch(colour) }}
+                title={colourNames[index]}
                 aria-hidden="true"
               />
             ))}
