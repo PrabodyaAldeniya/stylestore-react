@@ -4,6 +4,7 @@ import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { formatLKR } from "../format";
 import { colourLabel, colourSwatch } from "../lib/colours";
 import { ProductImage } from "./ProductCard";
+import ProductReviews from "./reviews/ProductReviews";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
@@ -156,6 +157,14 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
             <ShoppingBag size={16} />
             {isOutOfStock ? "Sold out" : `Add to Bag — ${formatLKR(product.price * qty)}`}
           </button>
+
+          {/* ---- Approved reviews for THIS product, plus the average rating
+                 and review count calculated from those approved reviews. ---- */}
+          <ProductReviews
+            productId={product.id}
+            productName={product.name}
+            limit={5}
+          />
         </div>
       </div>
     </div>

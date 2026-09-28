@@ -28,8 +28,10 @@ import {
 import subscribeRouter from "./routes/subscribe.js";
 import ordersRouter from "./routes/orders.js";
 import productsRouter from "./routes/products.js";
+import reviewsRouter from "./routes/reviews.js";
 import adminAuthRouter from "./routes/admin-auth.js";
 import adminProductsRouter from "./routes/admin-products.js";
+import adminReviewsRouter from "./routes/admin-reviews.js";
 import { initializeDatabase } from "./db/init.js";
 import { UPLOAD_DIR } from "./lib/uploads.js";
 
@@ -104,9 +106,13 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api", subscribeRouter);
 app.use("/api", ordersRouter);
+// Customer reviews: POST /api/reviews (submit), GET /api/reviews (approved).
+app.use("/api", reviewsRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
+// Review moderation. requireAdmin is applied inside the router.
+app.use("/api/admin/reviews", adminReviewsRouter);
 
 // Unknown API routes get a safe JSON 404.
 app.use("/api", (_req, res) => {
@@ -150,7 +156,7 @@ async function startServer() {
   try {
     await initializeDatabase();
     databaseReady = true;
-    console.log(`MySQL schema ready (${process.env.DB_NAME || "mystylestore_db"}: subscribers, orders, order_items, discount_codes, products).`);
+    console.log(`MySQL schema ready (${process.env.DB_NAME || "mystylestore_db"}: subscribers, orders, order_items, discount_codes, products, product_reviews).`);
   } catch (error) {
     console.warn(
       `MySQL schema init failed: ${error?.message ?? "unknown"}. Orders will return a clear error until the database is reachable.`

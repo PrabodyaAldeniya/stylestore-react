@@ -188,6 +188,41 @@ const STATEMENTS = [
      CONSTRAINT fk_colours_product
        FOREIGN KEY (product_id) REFERENCES ${q("products")}(id) ON DELETE CASCADE
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  // ---- Customer reviews (real, database-backed testimonials) ----
+  // Safe by design:
+  //   * `product_id` and `order_id` deliberately carry NO foreign key, so a
+  //     review can never be destroyed by — or block — a product Trash action,
+  //     an archive, or a permanent product delete.
+  //   * `product_name` is a snapshot (the same approach order_items uses), so
+  //     an approved review stays readable even after the product row is gone.
+  //   * `status` is the approval gate. Only 'approved' rows are ever read by
+  //     the public API, and every new review starts as 'pending'.
+  //   * UNIQUE(order_id, product_id) makes a duplicate review for the same
+  //     order line impossible, even if two identical requests race.
+  //   * `customer_email` exists for the admin only and is never included in a
+  //     public response.
+  `CREATE TABLE IF NOT EXISTS ${q("product_reviews")} (
+     id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     product_id     INT UNSIGNED NULL,
+     product_name   VARCHAR(255) NOT NULL,
+     order_id       INT UNSIGNED NULL,
+     order_number   VARCHAR(50)  NOT NULL,
+     customer_name  VARCHAR(100) NOT NULL,
+     customer_email VARCHAR(255) NOT NULL,
+     rating         TINYINT UNSIGNED NOT NULL,
+     review_title   VARCHAR(160) NULL,
+     review_text    TEXT         NOT NULL,
+     verified_buyer TINYINT(1)   NOT NULL DEFAULT 0,
+     status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     UNIQUE KEY uq_reviews_order_product (order_id, product_id),
+     KEY idx_reviews_status (status, created_at),
+     KEY idx_reviews_product (product_id, status),
+     KEY idx_reviews_order_number (order_number)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 const ORDER_ADDITIONS = [

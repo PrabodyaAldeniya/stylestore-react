@@ -14,6 +14,7 @@ import AdminLogin from "./pages/AdminLogin.jsx";
 import AdminProducts from "./pages/AdminProducts.jsx";
 import AdminTrash from "./pages/AdminTrash.jsx";
 import AdminProductEditor from "./pages/AdminProductEditor.jsx";
+import AdminReviews from "./pages/AdminReviews.jsx";
 import RequireAdmin from "./components/admin/RequireAdmin.jsx";
 import PromoPopup from "./components/PromoPopup.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
@@ -35,6 +36,9 @@ createRoot(document.getElementById("root")).render(
           <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route element={<RequireAdmin />}>
+            {/* Declared before the product editor so the literal
+                "reviews" segment is never read as a product id. */}
+            <Route path="/admin/reviews" element={<AdminReviews />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             {/* The Trash (soft delete) screen. Declared before the editor so
                 "trash" is never read as a product id. */}

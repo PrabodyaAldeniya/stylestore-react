@@ -5,8 +5,9 @@
 -- Mirrored statement-for-statement in init.js.
 --
 -- Reuses the ORIGINAL XAMPP tables (subscribers, orders,
--- order_items) and only adds the discount_codes table plus
--- the additive checkout columns the API needs.
+-- order_items) and only adds the discount_codes table, the
+-- catalogue tables and the additive checkout columns the
+-- API needs. Existing data is never dropped or rewritten.
 -- ========================================================
 
 CREATE DATABASE IF NOT EXISTS mystylestore_db
@@ -161,6 +162,49 @@ CREATE TABLE IF NOT EXISTS system_seed_markers (
   seed_key  VARCHAR(100) NOT NULL,
   seeded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (seed_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Product reviews — the real testimonial system.
+--
+-- Replaces the old hard-coded homepage reviews. A customer
+-- proves their purchase with an order number + the checkout
+-- email, the server checks that pair against `orders`, and the
+-- review is stored as 'pending'. Only 'approved' rows are ever
+-- read by the public API.
+--
+-- Safe by design:
+--   * product_id / order_id carry NO foreign key on purpose, so
+--     archiving, trashing or permanently deleting a product can
+--     never destroy a review or fail because of one.
+--   * product_name is a snapshot (the same approach order_items
+--     uses), so an approved review stays readable even after the
+--     product row itself is gone.
+--   * UNIQUE(order_id, product_id) blocks duplicate reviews for
+--     the same order line, even under concurrent requests.
+--   * customer_email is for the admin screen only. It is never
+--     part of a public response, and neither is the order number.
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id     INT UNSIGNED NULL,
+  product_name   VARCHAR(255) NOT NULL,
+  order_id       INT UNSIGNED NULL,
+  order_number   VARCHAR(50)  NOT NULL,
+  customer_name  VARCHAR(100) NOT NULL,
+  customer_email VARCHAR(255) NOT NULL,
+  rating         TINYINT UNSIGNED NOT NULL,
+  review_title   VARCHAR(160) NULL,
+  review_text    TEXT         NOT NULL,
+  verified_buyer TINYINT(1)   NOT NULL DEFAULT 0,
+  status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_reviews_order_product (order_id, product_id),
+  KEY idx_reviews_status (status, created_at),
+  KEY idx_reviews_product (product_id, status),
+  KEY idx_reviews_order_number (order_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------

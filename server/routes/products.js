@@ -4,6 +4,7 @@ import {
   listProductFacets,
   listProducts,
 } from "../repositories/products.js";
+import { getApprovedReviewSummary, listApprovedReviews } from "../repositories/reviews.js";
 import { parseProductId } from "../validation/product.js";
 
 const router = express.Router();
@@ -57,6 +58,43 @@ router.get("/facets", async (_req, res, next) => {
     res.json({ success: true, categories });
   } catch (error) {
     next(error);
+  }
+});
+
+// Approved reviews for one product, plus the average rating and review count
+// calculated from those approved reviews. This is what the Quick View and the
+// product detail area read, so the numbers on a card always match the reviews
+// a visitor can actually see. Declared before "/:id" so the extra path segment
+// can never be read as a product id.
+router.get("/:id/reviews", async (req, res) => {
+  try {
+    const productId = parseProductId(req.params.id);
+    // The product must exist and be publicly visible, otherwise this would
+    // confirm the existence of a draft, archived or trashed product.
+    const product = await getProductById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        code: "NOT_FOUND",
+        message: "Product not found.",
+      });
+    }
+
+    const [reviews, summary] = await Promise.all([
+      listApprovedReviews({ productId, limit: 20 }),
+      getApprovedReviewSummary(productId),
+    ]);
+
+    return res.json({
+      success: true,
+      productId,
+      productName: product.name,
+      reviews,
+      // `averageRating` and `reviewCount` come only from approved reviews.
+      summary,
+    });
+  } catch (error) {
+    return sendError(res, error);
   }
 });
 

@@ -124,3 +124,42 @@ export function permanentlyDeleteProduct(id, confirmation = "DELETE") {
     body: JSON.stringify({ confirm: confirmation }),
   });
 }
+
+// ========================================================
+// REVIEWS
+// --------------------------------------------------------
+// The review moderation endpoints. These go through the same
+// `request` helper, so the admin session cookie is always sent
+// and an expired session surfaces as error.code === "AUTH_REQUIRED".
+// ========================================================
+
+/**
+ * List customer reviews for the admin Reviews page.
+ * `status` accepts "pending" | "approved" | "rejected" (or nothing for all),
+ * `search` matches customer, email, order number, product or review text.
+ */
+export function listAdminReviews(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  return request(`/api/admin/reviews${query.toString() ? `?${query}` : ""}`);
+}
+
+/** Cheap pending/approved/rejected totals for the admin header badge. */
+export function getAdminReviewCounts() {
+  return request("/api/admin/reviews/counts");
+}
+
+/** Approve or reject a review. The server re-syncs the product rating. */
+export function updateAdminReviewStatus(id, status) {
+  return request(`/api/admin/reviews/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** Delete an inappropriate review for good. */
+export function deleteAdminReview(id) {
+  return request(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
