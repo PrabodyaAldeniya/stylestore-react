@@ -22,7 +22,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 
 import pool from "../db.js";
-import { getProduct } from "../data/products.js";
+import { getPublishedProductForCheckout } from "../repositories/products.js";
 import { sendOrderEmail } from "../lib/orderMailer.js";
 
 const router = Router();
@@ -90,6 +90,54 @@ function rejectDiscount(code) {
   return error;
 }
 
+function rejectCart(code, message, status = 400) {
+  const error = new Error(message);
+  error.cartRejection = code;
+  error.status = status;
+  return error;
+}
+
+function normalizeCartItem(item) {
+  const id = String(item?.id ?? item?.productId ?? "").trim();
+  const quantity = Number(item?.quantity);
+  if (!/^\d+$/.test(id) || Number(id) < 1) {
+    throw rejectCart("INVALID_ITEMS", "Your cart contains an invalid product.");
+  }
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ITEM_QTY) {
+    throw rejectCart("INVALID_ITEMS", "Your cart contains an invalid quantity.");
+  }
+  return {
+    id: Number(id),
+    quantity,
+    size: str(item?.size) || null,
+    color: str(item?.color ?? item?.colour) || null,
+  };
+}
+
+function resolveCartColour(product, value) {
+  if (!value || !product.colours.length) return value || null;
+  const match = product.colours.find(
+    (colour) => colour.name === value || colour.hex?.toLowerCase() === String(value).toLowerCase()
+  );
+  if (!match) {
+    throw rejectCart("INVALID_VARIANT", `The selected colour for ${product.name} is unavailable.`);
+  }
+  return match.name;
+}
+
+function validateCartVariant(product, item) {
+  if (product.sizes.length && !item.size) {
+    throw rejectCart("INVALID_VARIANT", `Choose a size for ${product.name}.`);
+  }
+  if (product.sizes.length && !product.sizes.includes(item.size)) {
+    throw rejectCart("INVALID_VARIANT", `The selected size for ${product.name} is unavailable.`);
+  }
+  if (product.colours.length && !item.color) {
+    throw rejectCart("INVALID_VARIANT", `Choose a colour for ${product.name}.`);
+  }
+  return resolveCartColour(product, item.color);
+}
+
 // A code row is "expired" (no longer usable) when it is disabled or its
 // expiry date has passed. mysql2 returns DATETIME as a JS Date, but strings
 // are also accepted so the helper is robust either way.
@@ -142,6 +190,18 @@ const historyLimiter = rateLimit({
     success: false,
     code: "RATE_LIMITED",
     message: "Too many order history requests. Please try again later.",
+  },
+});
+
+const lookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many order lookup requests. Please try again later.",
   },
 });
 
@@ -205,7 +265,9 @@ function buildOrderFromRows(orderRow, itemRows) {
       const quantity = Number(item.quantity);
       return {
         productId: String(item.product_id),
+        productSku: item.product_sku || null,
         productName: item.product_name,
+        productImagePath: item.product_image_path || null,
         size: item.size,
         color: item.color,
         quantity,
@@ -225,34 +287,14 @@ function generateOrderNumber(date = new Date()) {
   return `SS-${yyyy}${mm}${dd}-${random}`;
 }
 
-// Server-side totals — the ONLY totals the order trusts.
-function computeTotals({ items, discountPercent, deliveryMethod }) {
+// Server-side totals — the ONLY totals the order trusts. Product prices
+// are resolved from MySQL while the order transaction holds product locks.
+function computeTotals({ lines, discountPercent, deliveryMethod }) {
   let subtotal = 0;
-  const lines = [];
   let quantityCount = 0;
-
-  for (const item of items) {
-    const product = getProduct(item.id);
-    if (!product) return null; // unknown product -> reject whole order
-    const price = Math.round(Number(product.price));
-    const qty = Math.round(Number(item.quantity));
-    if (!Number.isFinite(price) || price < 0) return null;
-    if (!Number.isFinite(qty) || qty < 1 || qty > MAX_ITEM_QTY) return null;
-
-    quantityCount += qty;
-    if (quantityCount > 500) return null;
-
-    const lineTotal = price * qty;
-    subtotal += lineTotal;
-    lines.push({
-      productId: product.id,
-      productName: product.name,
-      size: item.size || null,
-      color: item.color || null,
-      quantity: qty,
-      unitPrice: price,
-      lineTotal,
-    });
+  for (const line of lines) {
+    subtotal += line.unitPrice * line.quantity;
+    quantityCount += line.quantity;
   }
 
   const discountRate = Math.min(
@@ -452,20 +494,12 @@ router.post("/orders", orderLimiter, async (req, res) => {
     discountPercent = Math.min(Number(codeRow.percent_off) || 0, MAX_DISCOUNT_PERCENT);
   }
 
-  // 5. Server-side totals.
-  const totals = computeTotals({ items, discountPercent, deliveryMethod });
-  if (!totals) {
-    return res.status(400).json({
-      success: false,
-      code: "INVALID_ITEMS",
-      message: "One or more items in your cart are no longer available. Please refresh and try again.",
-    });
-  }
-
-  // 6. Store the order + items inside one transaction.
+  // 5. Resolve products, lock stock, and calculate totals inside one transaction.
+  // 6. Store the order + items inside the same transaction.
   const connection = await pool.getConnection();
   let orderId;
   let orderNumber;
+  let totals;
 
   try {
     await connection.beginTransaction();
@@ -503,6 +537,43 @@ router.post("/orders", orderLimiter, async (req, res) => {
         [currentRow.id]
       );
     }
+
+    const lines = [];
+    let quantityCount = 0;
+    for (const rawItem of items) {
+      const item = normalizeCartItem(rawItem);
+      const product = await getPublishedProductForCheckout(item.id, connection);
+      if (!product) {
+        throw rejectCart(
+          "INVALID_ITEMS",
+          "One or more items in your cart are no longer available. Please refresh and try again."
+        );
+      }
+      const color = validateCartVariant(product, item);
+      quantityCount += item.quantity;
+      if (quantityCount > 500 || product.stockQuantity < item.quantity) {
+        throw rejectCart(
+          "OUT_OF_STOCK",
+          `${product.name} does not have enough stock for your cart.`
+        );
+      }
+      const price = Math.round(Number(product.price) * 100) / 100;
+      if (!Number.isFinite(price) || price < 0) {
+        throw rejectCart("INVALID_ITEMS", `${product.name} is not available for checkout.`);
+      }
+      lines.push({
+        productId: product.id,
+        productSku: product.sku,
+        productName: product.name,
+        productImagePath: product.images[0]?.path || null,
+        size: item.size,
+        color,
+        quantity: item.quantity,
+        unitPrice: price,
+        lineTotal: price * item.quantity,
+      });
+    }
+    totals = computeTotals({ lines, discountPercent, deliveryMethod });
 
     // Generating the order number here means a unique-key collision can
     // only happen on a race; retry a few times inside the transaction.
@@ -551,23 +622,45 @@ router.post("/orders", orderLimiter, async (req, res) => {
     for (const line of totals.lines) {
       await connection.execute(
         `INSERT INTO order_items
-           (order_id, product_id, product_name, size, color, quantity, unit_price)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (order_id, product_id, product_sku, product_name, product_image_path,
+            size, color, quantity, unit_price)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           String(line.productId),
+          line.productSku,
           line.productName,
+          line.productImagePath,
           line.size,
           line.color,
           line.quantity,
           line.unitPrice,
         ]
       );
+      const [stockResult] = await connection.execute(
+        `UPDATE products
+            SET stock_quantity = stock_quantity - ?
+          WHERE id = ? AND status = 'published' AND stock_quantity >= ?`,
+        [line.quantity, line.productId, line.quantity]
+      );
+      if (stockResult.affectedRows !== 1) {
+        throw rejectCart(
+          "OUT_OF_STOCK",
+          `${line.productName} does not have enough stock for your cart.`
+        );
+      }
     }
 
     await connection.commit();
   } catch (error) {
     await connection.rollback();
+    if (error?.cartRejection) {
+      return res.status(error.status || 400).json({
+        success: false,
+        code: error.cartRejection,
+        message: error.message,
+      });
+    }
     if (DISCOUNT_REJECTION_CODES.has(error?.discountRejection)) {
       return res.status(400).json({
         success: false,
@@ -612,10 +705,13 @@ router.post("/orders", orderLimiter, async (req, res) => {
     console.error(`[orders] confirmation email failed (${code}) for ${maskEmail(email)} (${orderNumber}) — order still saved`);
   }
 
-  return res.status(201).json({ success: true, order: safeSummary });
+  return res.status(201).json({
+    success: true,
+    order: { ...safeSummary, firstName, email },
+  });
 });
 
-router.get("/orders/:orderNumber", async (req, res) => {
+router.get("/orders/:orderNumber", lookupLimiter, async (req, res) => {
   const orderNumber = str(req.params.orderNumber).toUpperCase();
   if (!/^SS-\d{8}-[A-Z0-9]{5}$/.test(orderNumber)) {
     return res.status(400).json({
@@ -627,10 +723,9 @@ router.get("/orders/:orderNumber", async (req, res) => {
 
   try {
     const [orderRows] = await pool.execute(
-      `SELECT order_number, delivery_method, payment_method, subtotal,
-              discount, shipping_fee, total, discount_code, status, created_at,
-              first_name, email
-         FROM orders WHERE order_number = ? LIMIT 1`,
+       `SELECT order_number, delivery_method, payment_method, subtotal,
+               discount, shipping_fee, total, discount_code, status, created_at
+          FROM orders WHERE order_number = ? LIMIT 1`,
       [orderNumber]
     );
     if (orderRows.length === 0) {
@@ -642,7 +737,7 @@ router.get("/orders/:orderNumber", async (req, res) => {
     }
 
     const [itemRows] = await pool.execute(
-      `SELECT product_id, product_name, size, color, quantity, unit_price
+      `SELECT product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
          FROM order_items WHERE order_id = (
            SELECT id FROM orders WHERE order_number = ? LIMIT 1
          )`,
@@ -650,14 +745,7 @@ router.get("/orders/:orderNumber", async (req, res) => {
     );
 
     const order = buildOrderFromRows(orderRows[0], itemRows);
-    return res.status(200).json({
-      success: true,
-      order: {
-        ...order,
-        firstName: orderRows[0].first_name,
-        email: orderRows[0].email,
-      },
-    });
+    return res.status(200).json({ success: true, order });
   } catch (error) {
     console.error("[orders] lookup failed:", error?.message ?? "unknown");
     return res.status(503).json({
@@ -706,7 +794,7 @@ router.post("/orders/history", historyLimiter, async (req, res) => {
       const ids = orderRows.map((row) => row.id);
       const idPlaceholders = ids.map(() => "?").join(", ");
       const [itemRows] = await pool.execute(
-        `SELECT order_id, product_id, product_name, size, color, quantity, unit_price
+        `SELECT order_id, product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
            FROM order_items WHERE order_id IN (${idPlaceholders})`,
         ids
       );
@@ -769,7 +857,7 @@ router.post("/orders/lookup", historyLimiter, async (req, res) => {
     }
 
     const [itemRows] = await pool.execute(
-      `SELECT product_id, product_name, size, color, quantity, unit_price
+      `SELECT product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
          FROM order_items WHERE order_id = ?`,
       [orderRows[0].id]
     );

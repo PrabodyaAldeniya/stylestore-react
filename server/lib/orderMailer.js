@@ -30,6 +30,16 @@ function money(value) {
   return "Rs. " + Math.round(value).toLocaleString("en-LK");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
+}
+
 function buildText(order) {
   const lines = [
     `Hi ${order.firstName},`,
@@ -76,17 +86,19 @@ function buildText(order) {
 
 function buildHtml(order) {
   const rows = order.items
-    .map(
-      (item) => `
+    .map((item) => {
+      const productName = escapeHtml(item.productName);
+      const size = item.size ? ` <em>(${escapeHtml(item.size)})</em>` : "";
+      return `
         <tr style="border-bottom:1px solid ${BRAND_CREAM};">
           <td style="padding:10px 0;color:${BRAND_TEXT};font-family:Arial,sans-serif;font-size:14px;">
-            ${item.quantity} &times; ${item.productName}${item.size ? ` <em>(${item.size})</em>` : ""}
+            ${item.quantity} &times; ${productName}${size}
           </td>
           <td style="padding:10px 0;text-align:right;color:${BRAND_TEXT};font-family:Arial,sans-serif;font-size:14px;white-space:nowrap;">
             ${money(item.lineTotal)}
           </td>
-        </tr>`
-    )
+        </tr>`;
+    })
     .join("");
 
   return `
@@ -100,9 +112,9 @@ function buildHtml(order) {
           </div>
 
           <div style="padding:20px 32px 8px;">
-            <h1 style="margin:0 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${BRAND_TEXT};">Order ${order.orderNumber} — confirmed</h1>
-            <p style="margin:0;color:${BRAND_MUTED};font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
-              Hi ${order.firstName}, thanks for your order. We'll start preparing it right away.
+              <h1 style="margin:0 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${BRAND_TEXT};">Order ${escapeHtml(order.orderNumber)} — confirmed</h1>
+              <p style="margin:0;color:${BRAND_MUTED};font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
+                Hi ${escapeHtml(order.firstName)}, thanks for your order. We'll start preparing it right away.
             </p>
           </div>
 
@@ -113,7 +125,7 @@ function buildHtml(order) {
                   <td style="text-align:right;padding:4px 0;font-size:14px;">${money(order.subtotal)}</td></tr>
               ${
                 order.discount > 0
-                  ? `<tr><td style="color:${BRAND_MUTED};padding:4px 0;font-size:14px;">Discount (${order.discountCode})</td>
+                  ? `<tr><td style="color:${BRAND_MUTED};padding:4px 0;font-size:14px;">Discount (${escapeHtml(order.discountCode)})</td>
                       <td style="text-align:right;padding:4px 0;font-size:14px;color:#23a55a;">-${money(order.discount)}</td></tr>`
                   : ""
               }

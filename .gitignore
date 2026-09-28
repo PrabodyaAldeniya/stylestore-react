@@ -28,3 +28,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local product uploads are runtime data, not source files.
+server/uploads/*
+!server/uploads/.gitkeep

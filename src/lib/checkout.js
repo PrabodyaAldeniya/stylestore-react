@@ -1,14 +1,14 @@
 /* ========================================
    CHECKOUT CONFIGURATION
    Display-side rules only. The final authority
-   for pricing is the backend (server/data/products.js
+   for pricing is    the backend (server/repositories/products.js
    + server/routes/orders.js) — the server always
    recalculates subtotal, discount, shipping and total
    and never trusts what the browser sends.
    ======================================== */
 import { formatLKR } from "../format";
 
-export const API_BASE = import.meta.env.VITE_API_URL || "";
+export const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 export const DELIVERY_METHODS = {
   standard: { id: "standard", label: "Standard Delivery", fee: 650, eta: "3–5 working days" },

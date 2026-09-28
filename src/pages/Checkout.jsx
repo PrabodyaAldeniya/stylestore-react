@@ -43,6 +43,8 @@ const POSTAL_PATTERN = /^[A-Za-z0-9 -]{2,20}$/;
 const SERVER_MESSAGES = {
   VALIDATION_ERROR: "Please check the highlighted fields.",
   INVALID_ITEMS: "One or more items in your bag are no longer available. Please review and try again.",
+  OUT_OF_STOCK: "One or more items do not have enough stock. Please review your bag and try again.",
+  INVALID_VARIANT: "A selected size or colour is no longer available. Please review your bag and try again.",
   INVALID_CODE: "That discount code isn't valid anymore. Remove it to continue.",
   CODE_NOT_FOUND: "That discount code isn't valid. Remove it to continue.",
   CODE_EXPIRED: "That discount code has expired. Remove it to continue.",

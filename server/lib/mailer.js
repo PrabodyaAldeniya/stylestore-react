@@ -14,8 +14,8 @@ import {
 
 export { createTransporter, isSmtpConfigured, verifyTransporter };
 
-const SUBJECT = "Welcome to StyleStore \u2013 Your 10% Discount";
-const DISCOUNT_CODE = "WELCOME10";
+const SUBJECT = "Welcome to StyleStore \u2013 Your 15% Discount";
+const DISCOUNT_CODE = "NEWUSER";
 
 // StyleStore brand tokens (match src/App.css :root palette).
 const BRAND_BG = "#F8F4ED"; // --ivory
@@ -31,7 +31,7 @@ function buildText() {
     "",
     "Welcome to StyleStore!",
     "",
-    `As a thank you for subscribing, here is your 10% discount code: ${DISCOUNT_CODE}`,
+    `As a thank you for subscribing, here is your 15% discount code: ${DISCOUNT_CODE}`,
     "",
     "Use it at checkout on your next order.",
     "",
@@ -61,13 +61,13 @@ function buildHtml() {
           <div style="padding:20px 32px 8px;">
             <h1 style="margin:0 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${BRAND_TEXT};">Welcome to StyleStore!</h1>
             <p style="margin:0;color:${BRAND_MUTED};font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;">
-              Thanks for subscribing. As a thank-you, here is your 10% welcome discount.
+              Thanks for subscribing. As a thank-you, here is your 15% welcome discount.
             </p>
           </div>
 
           <div style="margin:24px 32px;padding:18px;border:2px dashed ${BRAND_ACCENT};border-radius:12px;text-align:center;background:${BRAND_BG};">
             <p style="margin:0 0 8px;color:${BRAND_MUTED};font-family:Arial,Helvetica,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;">
-              Your 10% discount code
+              Your 15% discount code
             </p>
             <p style="margin:0;color:${BRAND_ACCENT};font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:bold;letter-spacing:3px;">${DISCOUNT_CODE}</p>
             <p style="margin:10px 0 0;color:${BRAND_GOLD};font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;">Use it at checkout on your next order.</p>

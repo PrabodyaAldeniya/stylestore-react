@@ -12,7 +12,12 @@ async function request(path, { method = "GET", body } = {}) {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
   }
-  const response = await fetch(`${API_BASE}${path}`, options);
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, options);
+  } catch {
+    return { ok: false, status: 0, data: {} };
+  }
   let data;
   try {
     data = await response.json();

@@ -10,8 +10,7 @@ import { ShoppingBag, X } from "lucide-react";
 
 import "./App.css";
 
-// ---- Data ----
-import products from "./data/products";
+import { fetchProducts } from "./lib/productApi";
 import { formatLKR } from "./format";
 import { useCart } from "./context/useCart";
 // ---- Layout / sections ----
@@ -31,10 +30,7 @@ import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import ToastList from "./components/ToastList";
 
-// Prices in the data file are whole LKR amounts (e.g. 7800 => Rs. 7,800).
-const catalog = products.map((product) => ({ ...product }));
-
-const ALL_CATEGORIES = ["All", "Women", "Men", "Kids"];
+const ALL_CATEGORIES = ["All", "Women", "Men", "Kids", "Accessories"];
 
 function App() {
   const navigate = useNavigate();
@@ -54,6 +50,11 @@ function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortOption, setSortOption] = useState("featured");
+  const [saleOnly, setSaleOnly] = useState(false);
+  const [catalog, setCatalog] = useState([]);
+  const [catalogStatus, setCatalogStatus] = useState("loading");
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogReload, setCatalogReload] = useState(0);
 
   // ---- Wishlist (localStorage-backed) ----
   const [wishlist, setWishlist] = useState(() => {
@@ -80,6 +81,25 @@ function App() {
   useEffect(() => {
     localStorage.setItem("styleStoreWishlist", JSON.stringify(wishlist));
   }, [wishlist]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchProducts()
+      .then((result) => {
+        if (cancelled) return;
+        setCatalog(result.products || []);
+        setCatalogStatus("success");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setCatalog([]);
+        setCatalogError(error.message || "The catalogue could not be loaded.");
+        setCatalogStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogReload]);
 
   // Global scroll-reveal: observe every [data-reveal] /
   // .reveal element (raw className usage in sections) once.
@@ -144,7 +164,11 @@ function App() {
   //   1. adds the product exactly once (context dedupes on size/colour),
   //   2. instantly opens the existing CartDrawer,
   //   3. confirms with a small "Added to your bag" toast.
-  const handleAddToCart = (product, options) => {
+  const handleAddToCart = (product, options = {}) => {
+    if (product.isOutOfStock || Number(product.stockQuantity) <= 0) {
+      pushToast("This piece is currently out of stock", "info");
+      return;
+    }
     addToCart(product, options);
     setIsCartOpen(true);
     pushToast("Added to your bag");
@@ -157,11 +181,11 @@ function App() {
   };
 
   // Handlers used by hero & category cards.
-  const shopWomen = () => { setSelectedCategory("Women"); scrollToProducts(); };
-  const shopMen = () => { setSelectedCategory("Men"); scrollToProducts(); };
-  const shopAll = () => { setSelectedCategory("All"); scrollToProducts(); };
-  const shopSale = () => { setSelectedCategory("All"); setSortOption("featured"); scrollToProducts(); };
-  const shopCategory = (category) => { setSelectedCategory(category); scrollToProducts(); };
+  const shopWomen = () => { setSelectedCategory("Women"); setSaleOnly(false); scrollToProducts(); };
+  const shopMen = () => { setSelectedCategory("Men"); setSaleOnly(false); scrollToProducts(); };
+  const shopAll = () => { setSelectedCategory("All"); setSaleOnly(false); scrollToProducts(); };
+  const shopSale = () => { setSelectedCategory("All"); setSaleOnly(true); scrollToProducts(); };
+  const shopCategory = (category) => { setSelectedCategory(category); setSaleOnly(false); scrollToProducts(); };
 
   // Navbar navigation: filters the catalog for categories,
   // scrolls to the collection for "New In", and lands on the
@@ -195,7 +219,7 @@ function App() {
     setWishlist((current) => current.filter((w) => w !== id));
 
   const wishlistItems = wishlist
-    .map((id) => catalog.find((p) => p.id === id))
+    .map((id) => catalog.find((product) => String(product.id) === String(id)))
     .filter(Boolean);
 
   // ================= FILTER + SORT =================
@@ -206,8 +230,13 @@ function App() {
     let result = catalog.filter((product) => {
       const matchesCategory =
         selectedCategory === "All" || product.category === selectedCategory;
-      const matchesSearch = !query || product.name.toLowerCase().includes(query);
-      return matchesCategory && matchesSearch;
+      const matchesSearch =
+        !query ||
+        [product.name, product.sku, product.category, product.productType]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      const matchesSale = !saleOnly || product.isSale;
+      return matchesCategory && matchesSearch && matchesSale;
     });
 
     switch (sortOption) {
@@ -221,14 +250,15 @@ function App() {
         result = [...result].sort((a, b) => b.rating - a.rating);
         break;
       default:
-        // Featured: bestsellers + new items first.
-        result = [...result].sort((a, b) =>
-          Number(b.featured || false) - Number(a.featured || false)
+        result = [...result].sort(
+          (a, b) =>
+            Number(b.featured || false) - Number(a.featured || false) ||
+            new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
         );
     }
 
     return result;
-  }, [searchTerm, selectedCategory, sortOption]);
+  }, [catalog, saleOnly, searchTerm, selectedCategory, sortOption]);
 
   // ================= RENDER =================
 
@@ -262,7 +292,7 @@ function App() {
             <div className="section-heading reveal">
               <span className="eyebrow">THE COLLECTION</span>
               <h2>
-                {selectedCategory === "All" ? "New Arrivals" : selectedCategory}
+                {saleOnly ? "Sale" : selectedCategory === "All" ? "New Arrivals" : selectedCategory}
               </h2>
               <p>
                 Fresh from the design studio — wear-tested, season-proof and
@@ -275,6 +305,7 @@ function App() {
               selectedCategory={selectedCategory}
               onSelectCategory={(cat) => {
                 setSelectedCategory(cat);
+                setSaleOnly(false);
                 scrollToProducts();
               }}
               sortOption={sortOption}
@@ -284,6 +315,13 @@ function App() {
 
             <ProductList
               products={filteredProducts}
+              status={catalogStatus}
+              error={catalogError}
+               onRetry={() => {
+                 setCatalogStatus("loading");
+                 setCatalogError("");
+                 setCatalogReload((value) => value + 1);
+               }}
               wishlist={wishlist}
               onAddToCart={handleAddToCart}
               onAddToWishlist={toggleWishlist}
@@ -356,7 +394,7 @@ function App() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
                     className="icon-button"
-                    onClick={() => handleAddToCart({ id: item.id, name: item.name, price: item.price, image: item.image })}
+                    onClick={() => handleAddToCart(item)}
                     aria-label={`Add ${item.name} to bag`}
                   >
                     <ShoppingBag size={16} />

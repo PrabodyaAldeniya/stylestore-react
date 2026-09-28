@@ -91,7 +91,7 @@ function OrderDetails({ order, onClose }) {
         <h4 className="order-modal-subtitle">Items ({order.items.length})</h4>
         <ul className="order-modal-items">
           {order.items.map((item) => {
-            const image = getProductImage(item.productId);
+             const image = getProductImage(item);
             return (
               <li key={`${item.productId}|${item.size || ""}|${item.color || ""}`} className="order-modal-item">
                 {image ? (

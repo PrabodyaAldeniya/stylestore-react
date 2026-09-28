@@ -11,20 +11,28 @@
 //    that are genuinely missing (existing data is kept)
 // Mirrors server/db/schema.sql.
 // ========================================
+import dotenv from "dotenv";
 import mysql from "mysql2/promise";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { seedLegacyProducts } from "./seed.js";
+
+const serverDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(serverDir, "..", "..", ".env") });
 
 const DB_NAME = process.env.DB_NAME || "mystylestore_db";
 
 // Table names are qualified with the database so the real database name
 // from .env is respected even if this server process is not the default.
-const q = (table) => `\`${DB_NAME}\`.\`${table}\``;
+const quotedDatabaseName = `\`${DB_NAME.replaceAll("`", "``")}\``;
+const q = (table) => `${quotedDatabaseName}.\`${table.replaceAll("`", "``")}\``;
 
 // Base tables match the original XAMPP database (subscribers, orders,
 // order_items) exactly — including the additive columns the checkout API
 // needs (country / delivery_method / discount_code), which the migration
 // below also adds to an already-existing orders table.
 const STATEMENTS = [
-  `CREATE DATABASE IF NOT EXISTS ${DB_NAME}
+  `CREATE DATABASE IF NOT EXISTS ${quotedDatabaseName}
      CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 
   // ---- Newsletter subscribers (original table, kept as-is) ----
@@ -82,6 +90,12 @@ const STATEMENTS = [
        FOREIGN KEY (order_id) REFERENCES ${q("orders")}(id) ON DELETE CASCADE
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+  `CREATE TABLE IF NOT EXISTS ${q("system_seed_markers")} (
+     seed_key   VARCHAR(100) NOT NULL,
+     seeded_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY (seed_key)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
   // ---- Discount codes (new; used by the existing discount feature) ----
   // `expires_at` optionally stops a code after a date; `max_uses`/`times_used`
   // optionally cap the total number of redemptions. NEWUSER uses per-email
@@ -102,14 +116,88 @@ const STATEMENTS = [
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `INSERT INTO ${q("discount_codes")} (code, percent_off, active, description)
-     VALUES ('NEWUSER', 15, 1, '15% off your first order')
-     ON DUPLICATE KEY UPDATE percent_off = VALUES(percent_off), active = 1`,
+      VALUES ('NEWUSER', 15, 1, '15% off your first order')
+      ON DUPLICATE KEY UPDATE code = VALUES(code)`,
+
+  // ---- Catalogue products ----
+  `CREATE TABLE IF NOT EXISTS ${q("products")} (
+     id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     sku               VARCHAR(64)  NOT NULL,
+     name              VARCHAR(255) NOT NULL,
+     category          VARCHAR(80)  NOT NULL,
+     product_type      VARCHAR(80)  NOT NULL,
+     short_description VARCHAR(500) NULL,
+     description       TEXT         NOT NULL,
+     price             DECIMAL(10,2) NOT NULL,
+     original_price    DECIMAL(10,2) NULL,
+     stock_quantity    INT UNSIGNED NOT NULL DEFAULT 0,
+     is_new            TINYINT(1)   NOT NULL DEFAULT 0,
+     is_featured       TINYINT(1)   NOT NULL DEFAULT 0,
+     is_sale           TINYINT(1)   NOT NULL DEFAULT 0,
+     rating            DECIMAL(2,1) NOT NULL DEFAULT 0.0,
+     rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
+     status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
+     created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     UNIQUE KEY sku (sku),
+     KEY idx_products_status (status),
+     KEY idx_products_category (category),
+     KEY idx_products_price (price)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS ${q("product_images")} (
+     id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+     product_id  INT UNSIGNED NOT NULL,
+     path        VARCHAR(500) NOT NULL,
+     alt_text    VARCHAR(255) NULL,
+     sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+     is_primary  TINYINT(1)   NOT NULL DEFAULT 0,
+     created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     KEY idx_images_product (product_id, sort_order),
+     CONSTRAINT fk_images_product
+       FOREIGN KEY (product_id) REFERENCES ${q("products")}(id) ON DELETE CASCADE
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS ${q("product_sizes")} (
+     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     product_id  INT UNSIGNED NOT NULL,
+     size        VARCHAR(30) NOT NULL,
+     sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+     PRIMARY KEY (id),
+     UNIQUE KEY product_size (product_id, size),
+     CONSTRAINT fk_sizes_product
+       FOREIGN KEY (product_id) REFERENCES ${q("products")}(id) ON DELETE CASCADE
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS ${q("product_colours")} (
+     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     product_id  INT UNSIGNED NOT NULL,
+     name        VARCHAR(50) NOT NULL,
+     hex         CHAR(7) NULL,
+     sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+     PRIMARY KEY (id),
+     UNIQUE KEY product_colour (product_id, name),
+     CONSTRAINT fk_colours_product
+       FOREIGN KEY (product_id) REFERENCES ${q("products")}(id) ON DELETE CASCADE
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 const ORDER_ADDITIONS = [
   { column: "country", definition: "ADD COLUMN country VARCHAR(60) NOT NULL DEFAULT 'Sri Lanka' AFTER district" },
   { column: "delivery_method", definition: "ADD COLUMN delivery_method VARCHAR(30) NOT NULL DEFAULT 'standard' AFTER payment_method" },
   { column: "discount_code", definition: "ADD COLUMN discount_code VARCHAR(30) NULL AFTER total" },
+];
+
+const ORDER_ITEM_ADDITIONS = [
+  { column: "product_sku", definition: "ADD COLUMN product_sku VARCHAR(64) NULL AFTER product_id" },
+  { column: "product_image_path", definition: "ADD COLUMN product_image_path VARCHAR(500) NULL AFTER product_name" },
+];
+
+const PRODUCT_ADDITIONS = [
+  { column: "rating", definition: "ADD COLUMN rating DECIMAL(2,1) NOT NULL DEFAULT 0.0 AFTER is_sale" },
+  { column: "rating_count", definition: "ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating" },
 ];
 
 // Additive migrations for discount_codes so a table created by an older run
@@ -143,15 +231,23 @@ export async function initializeDatabase() {
     for (const statement of STATEMENTS) {
       await connection.query(statement);
     }
+    await connection.query(`USE ${quotedDatabaseName}`);
 
     // Additive migrations: bring an older/other schema up to the fields the
     // checkout API writes without touching existing data or tables.
     for (const addition of ORDER_ADDITIONS) {
       await ensureColumn(connection, "orders", addition.column, addition.definition);
     }
+    for (const addition of ORDER_ITEM_ADDITIONS) {
+      await ensureColumn(connection, "order_items", addition.column, addition.definition);
+    }
+    for (const addition of PRODUCT_ADDITIONS) {
+      await ensureColumn(connection, "products", addition.column, addition.definition);
+    }
     for (const addition of DISCOUNT_ADDITIONS) {
       await ensureColumn(connection, "discount_codes", addition.column, addition.definition);
     }
+    await seedLegacyProducts(connection);
   } finally {
     await connection.end();
   }

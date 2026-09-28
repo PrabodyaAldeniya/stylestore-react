@@ -3,7 +3,7 @@
    delivery progress, quantity controls and
    checkout CTA. Uses localStorage-backed cart.
 ============================================ */
-import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { Box, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { FREE_DELIVERY_THRESHOLD, formatLKR } from "../format";
 
 const itemKey = (item) =>
@@ -65,7 +65,13 @@ function CartDrawer({
         <ul className="cart-items">
           {cartItems.map((item) => (
             <li key={itemKey(item)} className="cart-item">
-              <img src={item.image} alt={item.name} />
+              {item.image ? (
+                <img src={item.image} alt={item.name} />
+              ) : (
+                <span className="cart-item-image-placeholder" aria-label="Product photo pending">
+                  <Box size={20} />
+                </span>
+              )}
 
               <div className="cart-item-info">
                 <strong>{item.name}</strong>
@@ -77,10 +83,10 @@ function CartDrawer({
                     <span className="cart-item-colour">
                       <span
                         className="cart-colour-dot"
-                        style={{ background: item.color }}
+                        style={{ background: item.colorHex || (/^#[0-9a-f]{3,6}$/i.test(item.color || "") ? item.color : "transparent") }}
                         aria-hidden="true"
                       />
-                      Colour
+                      Colour {item.color}
                     </span>
                   )}
                 </div>

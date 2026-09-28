@@ -50,7 +50,7 @@ function OrderCard({ order, onViewDetails }) {
       {/* ---- Items preview ---- */}
       <ul className="order-card-items">
         {order.items.map((item) => {
-          const image = getProductImage(item.productId);
+           const image = getProductImage(item);
           return (
             <li
               key={`${item.productId}|${item.size || ""}|${item.color || ""}`}

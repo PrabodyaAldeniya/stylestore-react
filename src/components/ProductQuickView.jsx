@@ -1,33 +1,29 @@
-﻿/* ========================================
-   PRODUCT QUICK VIEW — modal with sizes,
-   colors, quantity, add-to-bag. Rendered by
-   App; closes on overlay click or Escape.
-======================================== */
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 
 import { formatLKR } from "../format";
+import { ProductImage } from "./ProductCard";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
-  const FALLBACK_SIZES = ["XS", "S", "M", "L", "XL"];
-
-  const sizes =
-    product.sizes && product.sizes.length > 0 ? product.sizes : FALLBACK_SIZES;
-
-  const [size, setSize] = useState(sizes[1] || sizes[0]);
+  const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+  const sizes = hasSizes ? product.sizes : ["One size"];
+  const colours = product.colorOptions?.length
+    ? product.colorOptions
+    : (product.colors || []).map((hex) => ({ name: hex, hex }));
+  const [size, setSize] = useState(sizes[0]);
   const [qty, setQty] = useState(1);
   const [colorIndex, setColorIndex] = useState(0);
+  const stock = Number(product.stockQuantity || 0);
+  const isOutOfStock = product.isOutOfStock || stock <= 0;
 
-  // Lock body scroll + close on Escape while open.
   useEffect(() => {
     if (!product) return;
-
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    const onKey = (event) => { if (event.key === "Escape") onClose(); };
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", onKey);
-
     return () => {
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKey);
@@ -36,22 +32,27 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
 
   if (!product) return null;
 
-  const colors = product.colors && product.colors.length ? product.colors : ["#141013"];
-
+  const selectedColour = colours[colorIndex] || null;
   const addToBag = () => {
-    onAddToBag(product, { size, qty, color: colors[colorIndex] });
+    if (isOutOfStock) return;
+    onAddToBag(product, {
+      size: hasSizes ? size : null,
+      qty,
+      color: selectedColour?.name || null,
+      colorHex: selectedColour?.hex || null,
+    });
     onClose();
   };
 
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="quickview-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="icon-button quickview-close" onClick={onClose} aria-label="Close quick view">
+        <button type="button" className="icon-button quickview-close" onClick={onClose} aria-label="Close quick view">
           <X size={20} />
         </button>
 
         <div className="quickview-media">
-          <img src={product.image} alt={product.alt || product.name} />
+          <ProductImage src={product.image} alt={product.name} />
         </div>
 
         <div className="quickview-info">
@@ -64,61 +65,82 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
           </div>
 
           <p className="quickview-desc">{product.description}</p>
+          {isOutOfStock && <p className="stock-warning">This piece is currently sold out.</p>}
 
-          {/* ---- Colors ---- */}
-          <div className="qv-row">
-            <span className="filter-label">Color</span>
-            <div className="qv-colors">
-              {colors.map((hex, index) => (
-                <button
-                  key={hex}
-                  type="button"
-                  className={index === colorIndex ? "qv-color sel" : "qv-color"}
-                  style={{ background: hex }}
-                  aria-label={`Color ${index + 1}`}
-                  onClick={() => setColorIndex(index)}
-                >
-                  {index === colorIndex && (
-                    <Check size={14} color="#fff" style={{ margin: "auto", display: "block", position: "relative", top: "2px" }} />
-                  )}
-                </button>
-              ))}
+          {colours.length > 0 && (
+            <div className="qv-row">
+              <span className="filter-label">Colour{selectedColour ? `: ${selectedColour.name}` : ""}</span>
+              <div className="qv-colors">
+                {colours.map((colour, index) => (
+                  <button
+                    key={colour.name || colour.hex || index}
+                    type="button"
+                    className={index === colorIndex ? "qv-color sel" : "qv-color"}
+                    style={{ background: colour.hex || "transparent" }}
+                    aria-label={colour.name || `Colour ${index + 1}`}
+                    onClick={() => setColorIndex(index)}
+                  >
+                    {index === colorIndex && (
+                      <Check
+                        size={14}
+                        color="#fff"
+                        style={{ margin: "auto", display: "block", position: "relative", top: "2px" }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ---- Sizes ---- */}
-          <div className="qv-row">
-            <span className="filter-label">Size</span>
-            <div className="qv-sizes">
-              {sizes.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={size === item ? "qv-size sel" : "qv-size"}
-                  onClick={() => setSize(item)}
-                >
-                  {item}
-                </button>
-              ))}
+          {hasSizes && (
+            <div className="qv-row">
+              <span className="filter-label">Size</span>
+              <div className="qv-sizes">
+                {sizes.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={size === item ? "qv-size sel" : "qv-size"}
+                    onClick={() => setSize(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ---- Quantity + add ---- */}
           <div className="qv-row">
             <span className="filter-label">Qty</span>
             <div className="qv-qty">
-              <button type="button" aria-label="Decrease quantity" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => setQty((value) => Math.max(1, value - 1))}
+              >
                 <Minus size={14} />
               </button>
               <span>{qty}</span>
-              <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => q + 1)}>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                disabled={qty >= stock}
+                onClick={() => setQty((value) => Math.min(stock, value + 1))}
+              >
                 <Plus size={14} />
               </button>
             </div>
           </div>
 
-          <button type="button" className="primary-button qv-add" onClick={addToBag}>
-            <ShoppingBag size={16} /> Add to Bag &mdash; {formatLKR(product.price * qty)}
+          <button
+            type="button"
+            className="primary-button qv-add"
+            disabled={isOutOfStock}
+            onClick={addToBag}
+          >
+            <ShoppingBag size={16} />
+            {isOutOfStock ? "Sold out" : `Add to Bag — ${formatLKR(product.price * qty)}`}
           </button>
         </div>
       </div>

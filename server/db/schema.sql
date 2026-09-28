@@ -64,9 +64,11 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS order_items (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_id     INT UNSIGNED NOT NULL,
-  product_id   VARCHAR(100) NOT NULL,
-  product_name VARCHAR(255) NOT NULL,
-  size         VARCHAR(30)  NULL,
+  product_id         VARCHAR(100) NOT NULL,
+  product_sku        VARCHAR(64)  NULL,
+  product_name       VARCHAR(255) NOT NULL,
+  product_image_path VARCHAR(500) NULL,
+  size               VARCHAR(30)  NULL,
   color        VARCHAR(50)  NULL,
   quantity     INT UNSIGNED NOT NULL,
   unit_price   DECIMAL(10,2) NOT NULL,
@@ -74,6 +76,79 @@ CREATE TABLE IF NOT EXISTS order_items (
   KEY order_id (order_id),
   CONSTRAINT fk_items_order
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Products — the real catalogue. Product images store only
+-- validated local paths (for example /uploads/product-image.jpg).
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS products (
+  id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  sku               VARCHAR(64)  NOT NULL,
+  name              VARCHAR(255) NOT NULL,
+  category          VARCHAR(80)  NOT NULL,
+  product_type      VARCHAR(80)  NOT NULL,
+  short_description VARCHAR(500) NULL,
+  description       TEXT         NOT NULL,
+  price             DECIMAL(10,2) NOT NULL,
+  original_price    DECIMAL(10,2) NULL,
+  stock_quantity    INT UNSIGNED NOT NULL DEFAULT 0,
+  is_new            TINYINT(1)   NOT NULL DEFAULT 0,
+  is_featured       TINYINT(1)   NOT NULL DEFAULT 0,
+  is_sale           TINYINT(1)   NOT NULL DEFAULT 0,
+  rating            DECIMAL(2,1) NOT NULL DEFAULT 0.0,
+  rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
+  status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
+  created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY sku (sku),
+  KEY idx_products_status (status),
+  KEY idx_products_category (category),
+  KEY idx_products_price (price)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS product_images (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id  INT UNSIGNED NOT NULL,
+  path        VARCHAR(500) NOT NULL,
+  alt_text    VARCHAR(255) NULL,
+  sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+  is_primary  TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_images_product (product_id, sort_order),
+  CONSTRAINT fk_images_product
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS product_sizes (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id  INT UNSIGNED NOT NULL,
+  size        VARCHAR(30) NOT NULL,
+  sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY product_size (product_id, size),
+  CONSTRAINT fk_sizes_product
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS product_colours (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id  INT UNSIGNED NOT NULL,
+  name        VARCHAR(50) NOT NULL,
+  hex         CHAR(7) NULL,
+  sort_order  INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY product_colour (product_id, name),
+  CONSTRAINT fk_colours_product
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_seed_markers (
+  seed_key  VARCHAR(100) NOT NULL,
+  seeded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (seed_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -100,7 +175,7 @@ CREATE TABLE IF NOT EXISTS discount_codes (
 -- Seed the first-order 15% code.
 INSERT INTO discount_codes (code, percent_off, active, description)
 VALUES ('NEWUSER', 15, 1, '15% off your first order')
-ON DUPLICATE KEY UPDATE percent_off = VALUES(percent_off), active = 1;
+ON DUPLICATE KEY UPDATE code = VALUES(code);
 
 -- --------------------------------------------------------
 -- Additive migrations for databases that were created
@@ -135,6 +210,46 @@ SET @cols := (
 );
 SET @sql := IF(@cols = 0,
   'ALTER TABLE orders ADD COLUMN discount_code VARCHAR(30) NULL AFTER total',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_items'
+    AND COLUMN_NAME = 'product_sku'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE order_items ADD COLUMN product_sku VARCHAR(64) NULL AFTER product_id',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_items'
+    AND COLUMN_NAME = 'product_image_path'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE order_items ADD COLUMN product_image_path VARCHAR(500) NULL AFTER product_name',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'rating'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE products ADD COLUMN rating DECIMAL(2,1) NOT NULL DEFAULT 0.0 AFTER is_sale',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'rating_count'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE products ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

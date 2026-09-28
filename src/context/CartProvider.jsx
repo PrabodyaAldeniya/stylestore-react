@@ -31,6 +31,8 @@ function sanitize(raw) {
     image: String(raw.image ?? ""),
     size: raw.size ? String(raw.size) : null,
     color: raw.color ? String(raw.color) : null,
+    colorHex: raw.colorHex ? String(raw.colorHex) : null,
+    stockQuantity: Math.max(Number(raw.stockQuantity) || 0, 0),
     quantity: Math.min(
       Math.max(Math.round(Number(raw.quantity) || MIN_QUANTITY), MIN_QUANTITY),
       MAX_QUANTITY
@@ -41,6 +43,9 @@ function sanitize(raw) {
 const itemKey = (item) =>
   `${item.id}|${item.size || "none"}|${item.color || "none"}`;
 
+const maxForItem = (item) =>
+  Math.min(MAX_QUANTITY, Math.max(Number(item.stockQuantity) || MAX_QUANTITY, 1));
+
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(loadCart);
 
@@ -50,11 +55,14 @@ export function CartProvider({ children }) {
   }, [cartItems]);
 
   const addToCart = (product, options = {}) => {
+    if (product.isOutOfStock || Number(product.stockQuantity) <= 0) return;
     const size = options.size ?? null;
     const color = options.color ?? null;
+    const colorHex = options.colorHex ?? null;
+    const stock = Number(product.stockQuantity) || MAX_QUANTITY;
     const qty = Math.min(
       Math.max(Math.round(Number(options.qty) || 1), MIN_QUANTITY),
-      MAX_QUANTITY
+      Math.min(MAX_QUANTITY, stock)
     );
 
     setCartItems((current) => {
@@ -64,7 +72,7 @@ export function CartProvider({ children }) {
       if (existing) {
         return current.map((item) =>
           itemKey(item) === itemKey(target)
-            ? { ...item, quantity: Math.min(item.quantity + qty, MAX_QUANTITY) }
+            ? { ...item, quantity: Math.min(item.quantity + qty, maxForItem(item)) }
             : item
         );
       }
@@ -78,6 +86,8 @@ export function CartProvider({ children }) {
           image: product.image,
           size,
           color,
+          colorHex,
+          stockQuantity: Number(product.stockQuantity) || stock,
           quantity: qty,
         },
       ];
@@ -87,7 +97,7 @@ export function CartProvider({ children }) {
   const setItemQuantity = (item, quantity) => {
     const qty = Math.min(
       Math.max(Math.round(Number(quantity) || MIN_QUANTITY), MIN_QUANTITY),
-      MAX_QUANTITY
+      maxForItem(item)
     );
     setCartItems((current) =>
       current.map((it) =>
@@ -100,7 +110,7 @@ export function CartProvider({ children }) {
     setCartItems((current) =>
       current.map((it) =>
         itemKey(it) === itemKey(item)
-          ? { ...it, quantity: Math.min(it.quantity + 1, MAX_QUANTITY) }
+          ? { ...it, quantity: Math.min(it.quantity + 1, maxForItem(it)) }
           : it
       )
     );
