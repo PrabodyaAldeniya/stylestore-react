@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, LockKeyhole } from "lucide-react";
 
 import { getAdminSession, loginAdmin } from "../lib/adminApi";
+import "../admin.css";
 
 export default function AdminLogin() {
   const navigate = useNavigate();

@@ -45,6 +45,10 @@ function ProductCard({
     : (product.colors || []).map((hex) => ({ hex, name: hex }));
   const hasVariantOptions = product.sizes?.length > 0 || colours.length > 0;
   const isOutOfStock = product.isOutOfStock || Number(product.stockQuantity) <= 0;
+  // "Featured" is the flag the admin form toggles and the one the default
+  // "Featured" sort uses. It is suppressed on sold-out items so the badge
+  // never competes with the SOLD OUT label.
+  const isFeatured = !isOutOfStock && Boolean(product.featured);
 
   return (
     <article className="product-card">
@@ -53,6 +57,7 @@ function ProductCard({
 
         <div className="product-badges">
           {isNew && <span className="badge badge-new">NEW</span>}
+          {isFeatured && <span className="badge badge-featured">FEATURED</span>}
           {discount > 0 && <span className="badge badge-sale">-{discount}%</span>}
           {isOutOfStock && <span className="badge badge-out">SOLD OUT</span>}
         </div>

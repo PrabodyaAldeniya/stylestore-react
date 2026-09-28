@@ -131,6 +131,7 @@ const STATEMENTS = [
      price             DECIMAL(10,2) NOT NULL,
      original_price    DECIMAL(10,2) NULL,
      stock_quantity    INT UNSIGNED NOT NULL DEFAULT 0,
+     low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5,
      is_new            TINYINT(1)   NOT NULL DEFAULT 0,
      is_featured       TINYINT(1)   NOT NULL DEFAULT 0,
      is_sale           TINYINT(1)   NOT NULL DEFAULT 0,
@@ -198,6 +199,11 @@ const ORDER_ITEM_ADDITIONS = [
 const PRODUCT_ADDITIONS = [
   { column: "rating", definition: "ADD COLUMN rating DECIMAL(2,1) NOT NULL DEFAULT 0.0 AFTER is_sale" },
   { column: "rating_count", definition: "ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating" },
+  {
+    column: "low_stock_threshold",
+    definition:
+      "ADD COLUMN low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5 AFTER stock_quantity",
+  },
 ];
 
 // Additive migrations for discount_codes so a table created by an older run

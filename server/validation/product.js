@@ -1,7 +1,11 @@
 const MAX_NAME_LENGTH = 255;
 const MAX_STOCK = 1_000_000;
 const MAX_VARIANTS = 30;
+const MAX_PRICE = 99_999_999;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const PRODUCT_STATUSES = ["draft", "published", "archived"];
+const MAIN_CATEGORIES = ["Women", "Men", "Kids", "Accessories"];
+const DEFAULT_LOW_STOCK = 5;
 
 function fieldError(message) {
   return { message };
@@ -143,7 +147,7 @@ export function validateProduct(body = {}, { partial = false } = {}) {
 
   const price = toNumber(body.price);
   if (required("price")) {
-    if (price === null || price <= 0 || price > 99_999_999) {
+    if (price === null || price <= 0 || price > MAX_PRICE) {
       errors.price = fieldError("Enter a price greater than zero.");
     } else {
       value.price = Math.round(price * 100) / 100;
@@ -157,7 +161,7 @@ export function validateProduct(body = {}, { partial = false } = {}) {
   if (
     body.originalPrice !== undefined &&
     originalPrice !== null &&
-    (originalPrice <= 0 || originalPrice > 99_999_999)
+    (originalPrice <= 0 || originalPrice > MAX_PRICE)
   ) {
     errors.originalPrice = fieldError("Enter a valid original price or leave it blank.");
   } else if (
@@ -177,6 +181,15 @@ export function validateProduct(body = {}, { partial = false } = {}) {
     } else {
       value.stockQuantity = stockQuantity;
     }
+  }
+
+  const lowStockThreshold = toInteger(body.lowStockThreshold ?? DEFAULT_LOW_STOCK);
+  if (lowStockThreshold === null || lowStockThreshold < 0 || lowStockThreshold > MAX_STOCK) {
+    errors.lowStockThreshold = fieldError(
+      "Enter the low-stock warning level as a whole number from 0 to 1,000,000."
+    );
+  } else {
+    value.lowStockThreshold = lowStockThreshold;
   }
 
   const rating = toNumber(body.rating ?? 0);
@@ -213,8 +226,8 @@ export function validateProduct(body = {}, { partial = false } = {}) {
 
   if (body.status !== undefined || !partial) {
     const status = body.status === undefined ? "draft" : cleanText(body.status, 20);
-    if (!["draft", "published"].includes(status)) {
-      errors.status = fieldError("Status must be draft or published.");
+    if (!PRODUCT_STATUSES.includes(status)) {
+      errors.status = fieldError("Status must be draft, published, or archived.");
     } else {
       value.status = status;
     }
@@ -241,4 +254,4 @@ export function parseProductId(value) {
   return id;
 }
 
-export { normalizeColours, normalizeSizes };
+export { MAIN_CATEGORIES, PRODUCT_STATUSES, normalizeColours, normalizeSizes };

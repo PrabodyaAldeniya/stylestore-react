@@ -48,21 +48,46 @@ export function listAdminProducts(params = {}) {
   return request(`/api/admin/products${query.toString() ? `?${query}` : ""}`);
 }
 
+export function getAdminCatalogueMeta() {
+  return request("/api/admin/products/meta");
+}
+
+export function getAdminProduct(id) {
+  return request(`/api/admin/products/${encodeURIComponent(id)}`);
+}
+
 export function createAdminProduct(formData) {
   return request("/api/admin/products", { method: "POST", body: formData });
 }
 
 export function updateAdminProduct(id, formData) {
-  return request(`/api/admin/products/${id}`, { method: "PUT", body: formData });
+  return request(`/api/admin/products/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: formData,
+  });
 }
 
 export function updateAdminProductStatus(id, status) {
-  return request(`/api/admin/products/${id}/status`, {
+  return request(`/api/admin/products/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
+export function setAdminProductPrimaryImage(id, imageId) {
+  return request(
+    `/api/admin/products/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}/primary`,
+    { method: "PATCH" }
+  );
+}
+
+export function deleteAdminProductImage(id, imageId) {
+  return request(
+    `/api/admin/products/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`,
+    { method: "DELETE" }
+  );
+}
+
 export function deleteAdminProduct(id) {
-  return request(`/api/admin/products/${id}`, { method: "DELETE" });
+  return request(`/api/admin/products/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

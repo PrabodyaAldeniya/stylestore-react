@@ -11,6 +11,7 @@ const PRODUCT_COLUMNS = `
   p.price,
   p.original_price,
   p.stock_quantity,
+  p.low_stock_threshold,
   p.is_new,
   p.is_featured,
   p.is_sale,
@@ -21,7 +22,10 @@ const PRODUCT_COLUMNS = `
   p.updated_at`;
 
 const PUBLIC_STATUS = "published";
+const STATUSES = ["draft", "published", "archived"];
+const STOCK_FILTERS = ["in_stock", "low_stock", "out_of_stock"];
 const MAX_PAGE_SIZE = 100;
+const DEFAULT_LOW_STOCK = 5;
 
 function numberOrNull(value) {
   if (value === null || value === undefined) return null;
@@ -29,9 +33,17 @@ function numberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+/** "out_of_stock" | "low_stock" | "in_stock" — drives admin + public badges. */
+function stockStateFor(quantity, threshold) {
+  if (quantity <= 0) return "out_of_stock";
+  return quantity <= threshold ? "low_stock" : "in_stock";
+}
+
 function toProduct(row, relations = {}) {
   const price = numberOrNull(row.price);
   const originalPrice = numberOrNull(row.original_price);
+  const stockQuantity = Number(row.stock_quantity || 0);
+  const lowStockThreshold = Number(row.low_stock_threshold ?? DEFAULT_LOW_STOCK);
   return {
     id: row.id,
     sku: row.sku,
@@ -46,7 +58,9 @@ function toProduct(row, relations = {}) {
       originalPrice && price !== null && originalPrice > price
         ? Math.round(((originalPrice - price) / originalPrice) * 100)
         : 0,
-    stockQuantity: Number(row.stock_quantity || 0),
+    stockQuantity,
+    lowStockThreshold,
+    stockState: stockStateFor(stockQuantity, lowStockThreshold),
     isNew: Boolean(row.is_new),
     isFeatured: Boolean(row.is_featured),
     isSale: Boolean(row.is_sale),
@@ -119,13 +133,13 @@ async function loadRelations(connection, rows) {
   return grouped;
 }
 
-function listQuery({ includeDrafts, search, category, status, sort }) {
+function listQuery({ includeDrafts, search, category, productType, status, stock, sort }) {
   const conditions = [];
   const values = [];
   if (!includeDrafts) {
     conditions.push("p.status = ?");
     values.push(PUBLIC_STATUS);
-  } else if (["draft", "published"].includes(status)) {
+  } else if (STATUSES.includes(status)) {
     conditions.push("p.status = ?");
     values.push(status);
   }
@@ -140,6 +154,25 @@ function listQuery({ includeDrafts, search, category, status, sort }) {
     conditions.push("p.category = ?");
     values.push(category);
   }
+  if (productType) {
+    conditions.push("p.product_type = ?");
+    values.push(productType);
+  }
+  if (STOCK_FILTERS.includes(stock)) {
+    if (stock === "out_of_stock") {
+      conditions.push("p.stock_quantity = 0");
+    } else if (stock === "low_stock") {
+      // Anything left of (or at) its own threshold. Products saved before the
+      // column existed fall back to the default threshold via COALESCE.
+      conditions.push(
+        "p.stock_quantity > 0 AND p.stock_quantity <= COALESCE(p.low_stock_threshold, ?)"
+      );
+      values.push(DEFAULT_LOW_STOCK);
+    } else {
+      conditions.push("p.stock_quantity > COALESCE(p.low_stock_threshold, ?)");
+      values.push(DEFAULT_LOW_STOCK);
+    }
+  }
 
   const orderBy = {
     featured: "p.is_featured DESC, p.created_at DESC, p.id DESC",
@@ -148,6 +181,7 @@ function listQuery({ includeDrafts, search, category, status, sort }) {
     "price-asc": "p.price ASC, p.id DESC",
     "price-desc": "p.price DESC, p.id DESC",
     name: "p.name ASC, p.id ASC",
+    "stock-asc": "p.stock_quantity ASC, p.id DESC",
   }[sort] || "p.created_at DESC, p.id DESC";
 
   return {
@@ -168,7 +202,9 @@ export async function listProducts(options = {}, connection = pool) {
     includeDrafts,
     search: options.search?.trim() || "",
     category: options.category?.trim() || "",
+    productType: options.productType?.trim() || "",
     status: options.status,
+    stock: options.stock,
     sort: options.sort,
   });
 
@@ -230,9 +266,9 @@ export async function createProduct(data, connection = pool) {
     const [result] = await connection.query(
       `INSERT INTO products
         (sku, name, category, product_type, short_description, description,
-         price, original_price, stock_quantity, is_new, is_featured, is_sale,
-         rating, rating_count, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         price, original_price, stock_quantity, low_stock_threshold,
+         is_new, is_featured, is_sale, rating, rating_count, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.sku,
         data.name,
@@ -243,6 +279,7 @@ export async function createProduct(data, connection = pool) {
         data.price,
         data.originalPrice,
         data.stockQuantity,
+        Number(data.lowStockThreshold ?? DEFAULT_LOW_STOCK),
         data.isNew ? 1 : 0,
         data.isFeatured ? 1 : 0,
         data.isSale || (data.originalPrice && data.originalPrice > data.price)
@@ -273,8 +310,9 @@ export async function updateProduct(id, data, connection = pool) {
       `UPDATE products
           SET sku = ?, name = ?, category = ?, product_type = ?,
               short_description = ?, description = ?, price = ?,
-              original_price = ?, stock_quantity = ?, is_new = ?,
-              is_featured = ?, is_sale = ?, rating = ?, rating_count = ?, status = ?
+              original_price = ?, stock_quantity = ?, low_stock_threshold = ?,
+              is_new = ?, is_featured = ?, is_sale = ?, rating = ?,
+              rating_count = ?, status = ?
         WHERE id = ?`,
       [
         data.sku,
@@ -286,6 +324,7 @@ export async function updateProduct(id, data, connection = pool) {
         data.price,
         data.originalPrice,
         data.stockQuantity,
+        Number(data.lowStockThreshold ?? DEFAULT_LOW_STOCK),
         data.isNew ? 1 : 0,
         data.isFeatured ? 1 : 0,
         data.isSale || (data.originalPrice && data.originalPrice > data.price)
@@ -354,9 +393,7 @@ export async function addProductImage(
      VALUES (?, ?, ?, ?, ?)`,
     [productId, imagePath, altText || null, sortOrder, isPrimary ? 1 : 0]
   );
-  return getProductById(productId, { includeDrafts: true, connection }).then(
-    () => result
-  );
+  return result;
 }
 
 export async function removeProductImage(productId, imageId, connection = pool) {
@@ -394,6 +431,45 @@ export async function setPrimaryProductImage(productId, imageId, connection = po
   return getProductById(productId, { includeDrafts: true, connection });
 }
 
+/**
+ * Removes several images from one product inside the caller's transaction and
+ * promotes the next remaining image when the primary one is deleted.
+ * Returns the removed rows so the caller can unlink orphaned files afterwards.
+ */
+export async function removeProductImages(productId, imageIds, connection = pool) {
+  const ids = [...new Set((imageIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!ids.length) return [];
+
+  const placeholders = ids.map(() => "?").join(", ");
+  const [rows] = await connection.query(
+    `SELECT id, path, is_primary FROM product_images
+      WHERE product_id = ? AND id IN (${placeholders})`,
+    [productId, ...ids]
+  );
+  if (!rows.length) return [];
+
+  const removedIds = rows.map((row) => row.id);
+  const deletePlaceholders = removedIds.map(() => "?").join(", ");
+  await connection.query(
+    `DELETE FROM product_images
+      WHERE product_id = ? AND id IN (${deletePlaceholders})`,
+    [productId, ...removedIds]
+  );
+
+  if (rows.some((row) => row.is_primary)) {
+    const [next] = await connection.query(
+      "SELECT id FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC LIMIT 1",
+      [productId]
+    );
+    if (next.length) {
+      await connection.query("UPDATE product_images SET is_primary = 1 WHERE id = ?", [
+        next[0].id,
+      ]);
+    }
+  }
+  return rows;
+}
+
 export async function getProductImagePath(productId, connection = pool) {
   const [rows] = await connection.query(
     `SELECT path FROM product_images
@@ -403,4 +479,45 @@ export async function getProductImagePath(productId, connection = pool) {
   return rows[0]?.path || null;
 }
 
-export { productError, toProduct };
+/**
+ * Category → product type facets used by the public subcategory navigation
+ * and by the admin filter dropdowns. Published-only for the public API;
+ * the admin API passes includeDrafts to see every product type.
+ */
+export async function listProductFacets(
+  { includeDrafts = false } = {},
+  connection = pool
+) {
+  const [rows] = await connection.query(
+    `SELECT p.category, p.product_type, COUNT(*) AS total
+       FROM products p
+      ${includeDrafts ? "" : "WHERE p.status = ?"}
+      GROUP BY p.category, p.product_type
+      ORDER BY p.category ASC, total DESC, p.product_type ASC`,
+    includeDrafts ? [] : [PUBLIC_STATUS]
+  );
+
+  const byCategory = new Map();
+  for (const row of rows) {
+    const category = row.category || "Uncategorised";
+    if (!byCategory.has(category)) byCategory.set(category, new Map());
+    const types = byCategory.get(category);
+    const type = row.product_type || "Uncategorised";
+    types.set(type, (types.get(type) || 0) + Number(row.total || 0));
+  }
+
+  const categories = [...byCategory.entries()]
+    .map(([category, types]) => ({
+      category,
+      total: [...types.values()].reduce((sum, count) => sum + count, 0),
+      productTypes: [...types.entries()].map(([productType, count]) => ({
+        productType,
+        count,
+      })),
+    }))
+    .sort((a, b) => a.category.localeCompare(b.category));
+
+  return { categories };
+}
+
+export { DEFAULT_LOW_STOCK, STATUSES, STOCK_FILTERS, productError, stockStateFor, toProduct };

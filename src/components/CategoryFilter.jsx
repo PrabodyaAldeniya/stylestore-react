@@ -1,5 +1,6 @@
 ﻿/* ========================================
    CategoryFilter — All / Women / Men / Kids
+   + sub-category (product type) pills
    + sort dropdown (drives ProductList)
 ======================================== */
 import { ChevronDown } from "lucide-react";
@@ -8,6 +9,9 @@ function CategoryFilter({
   categories,
   selectedCategory,
   onSelectCategory,
+  productTypes = [],
+  selectedType = "all",
+  onSelectType,
   sortOption,
   onSortChange,
   productCount,
@@ -41,8 +45,38 @@ function CategoryFilter({
         </div>
       </div>
 
+      {/* ---- Sub-category (product type) pills ---- */}
+      {productTypes.length > 0 && (
+        <div className="filter-group filter-group-sub" role="group" aria-label="Collection">
+          <span className="filter-label">COLLECTION</span>
+
+          <div className="category-pills category-pills-sub">
+            <button
+              type="button"
+              className={selectedType === "all" ? "category-pill active" : "category-pill"}
+              aria-pressed={selectedType === "all"}
+              onClick={() => onSelectType?.("all")}
+            >
+              All {selectedCategory === "All" ? "styles" : selectedCategory}
+            </button>
+            {productTypes.map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={selectedType === type ? "category-pill active" : "category-pill"}
+                aria-pressed={selectedType === type}
+                onClick={() => onSelectType?.(type)}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ---- Sort dropdown ---- */}
       <div className="filter-group sort-group">
+
         <span className="filter-label">SORT</span>
 
         <label className="sort-select">

@@ -1,5 +1,9 @@
 import express from "express";
-import { getProductById, listProducts } from "../repositories/products.js";
+import {
+  getProductById,
+  listProductFacets,
+  listProducts,
+} from "../repositories/products.js";
 import { parseProductId } from "../validation/product.js";
 
 const router = express.Router();
@@ -20,6 +24,7 @@ router.get("/", async (req, res, next) => {
       pageSize: req.query.pageSize,
       search: req.query.search,
       category: req.query.category,
+      productType: req.query.productType,
       sort: req.query.sort,
     });
     res.json({ success: true, ...result });
@@ -35,6 +40,17 @@ router.get("/categories", async (_req, res, next) => {
       "SELECT DISTINCT category FROM products WHERE status = 'published' ORDER BY category"
     );
     res.json({ success: true, categories: rows.map((row) => row.category) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Category + product-type navigation for the public catalogue. Declared
+// before "/:id" so "facets" is not parsed as a product id.
+router.get("/facets", async (_req, res, next) => {
+  try {
+    const facets = await listProductFacets();
+    res.json({ success: true, ...facets });
   } catch (error) {
     next(error);
   }

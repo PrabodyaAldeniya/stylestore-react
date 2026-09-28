@@ -8,7 +8,9 @@ const serverDir = path.dirname(fileURLToPath(import.meta.url));
 export const UPLOAD_DIR = path.resolve(serverDir, "..", "uploads");
 export const UPLOAD_PREFIX = "/uploads";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export { MAX_IMAGE_BYTES };
 export const MAX_IMAGE_COUNT = 6;
+export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const allowedTypes = new Map([
   ["image/jpeg", ".jpg"],
   ["image/png", ".png"],

@@ -43,10 +43,17 @@ async function request(path) {
   return data;
 }
 
-export async function fetchProducts({ pageSize = 100, search = "", category = "", sort = "newest" } = {}) {
+export async function fetchProducts({
+  pageSize = 100,
+  search = "",
+  category = "",
+  productType = "",
+  sort = "newest",
+} = {}) {
   const params = new URLSearchParams({ pageSize: String(pageSize), sort });
   if (search) params.set("search", search);
   if (category && category !== "All") params.set("category", category);
+  if (productType && productType !== "all") params.set("productType", productType);
   const products = [];
   let result = { products: [], total: 0, hasMore: false };
   for (let page = 1; page <= 100; page += 1) {

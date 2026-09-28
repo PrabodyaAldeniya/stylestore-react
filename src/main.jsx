@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import "./index.css";
 import "./App.css";
@@ -12,10 +12,14 @@ import OrderSuccess from "./pages/OrderSuccess.jsx";
 import OrderHistory from "./pages/OrderHistory.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import AdminProducts from "./pages/AdminProducts.jsx";
+import AdminProductEditor from "./pages/AdminProductEditor.jsx";
+import RequireAdmin from "./components/admin/RequireAdmin.jsx";
 import PromoPopup from "./components/PromoPopup.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 import { CartProvider } from "./context/CartProvider.jsx";
 
+/* Admin routes are wrapped in RequireAdmin so the session cookie is always
+   verified before any product screen renders. */
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <CartProvider>
@@ -27,8 +31,19 @@ createRoot(document.getElementById("root")).render(
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success/:orderNumber" element={<OrderSuccess />} />
           <Route path="/orders" element={<OrderHistory />} />
+          <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/products" element={<AdminProducts />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/products" element={<AdminProducts />} />
+            {/* key forces a fresh editor per route so unsaved state from one
+                product never bleeds into another. */}
+            <Route path="/admin/products/new" element={<AdminProductEditor key="new" />} />
+            <Route
+              path="/admin/products/:productId/edit"
+              element={<AdminProductEditor key="edit" />}
+            />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </CartProvider>

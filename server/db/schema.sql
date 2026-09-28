@@ -81,6 +81,10 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- --------------------------------------------------------
 -- Products — the real catalogue. Product images store only
 -- validated local paths (for example /uploads/product-image.jpg).
+-- `status` accepts 'draft' | 'published' | 'archived'; only
+-- 'published' rows are visible on the public website.
+-- `low_stock_threshold` is the per-product "low stock" warning
+-- level used by the admin product form and list.
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS products (
   id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -93,6 +97,7 @@ CREATE TABLE IF NOT EXISTS products (
   price             DECIMAL(10,2) NOT NULL,
   original_price    DECIMAL(10,2) NULL,
   stock_quantity    INT UNSIGNED NOT NULL DEFAULT 0,
+  low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5,
   is_new            TINYINT(1)   NOT NULL DEFAULT 0,
   is_featured       TINYINT(1)   NOT NULL DEFAULT 0,
   is_sale           TINYINT(1)   NOT NULL DEFAULT 0,
@@ -250,6 +255,16 @@ SET @cols := (
 );
 SET @sql := IF(@cols = 0,
   'ALTER TABLE products ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'low_stock_threshold'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE products ADD COLUMN low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5 AFTER stock_quantity',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

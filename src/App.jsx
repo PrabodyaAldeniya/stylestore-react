@@ -11,6 +11,7 @@ import { ShoppingBag, X } from "lucide-react";
 import "./App.css";
 
 import { fetchProducts } from "./lib/productApi";
+import { orderProductTypes } from "./lib/adminCatalog";
 import { formatLKR } from "./format";
 import { useCart } from "./context/useCart";
 // ---- Layout / sections ----
@@ -49,6 +50,8 @@ function App() {
   // ---- Search / filter / sort ----
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  // Product types are the sub-categories of the current main category.
+  const [selectedType, setSelectedType] = useState("all");
   const [sortOption, setSortOption] = useState("featured");
   const [saleOnly, setSaleOnly] = useState(false);
   const [catalog, setCatalog] = useState([]);
@@ -181,11 +184,24 @@ function App() {
   };
 
   // Handlers used by hero & category cards.
-  const shopWomen = () => { setSelectedCategory("Women"); setSaleOnly(false); scrollToProducts(); };
-  const shopMen = () => { setSelectedCategory("Men"); setSaleOnly(false); scrollToProducts(); };
-  const shopAll = () => { setSelectedCategory("All"); setSaleOnly(false); scrollToProducts(); };
-  const shopSale = () => { setSelectedCategory("All"); setSaleOnly(true); scrollToProducts(); };
-  const shopCategory = (category) => { setSelectedCategory(category); setSaleOnly(false); scrollToProducts(); };
+  // Switching the main category always clears the sub-category, otherwise the
+  // two filters can combine into a combination that has no products.
+  const shopWomen = () => selectCategory("Women");
+  const shopMen = () => selectCategory("Men");
+  const shopAll = () => selectCategory("All");
+  const shopSale = () => {
+    selectCategory("All");
+    setSaleOnly(true);
+    scrollToProducts();
+  };
+  const shopCategory = (category) => selectCategory(category);
+
+  function selectCategory(category) {
+    setSelectedCategory(category);
+    setSelectedType("all");
+    setSaleOnly(false);
+    scrollToProducts();
+  }
 
   // Navbar navigation: filters the catalog for categories,
   // scrolls to the collection for "New In", and lands on the
@@ -224,19 +240,34 @@ function App() {
 
   // ================= FILTER + SORT =================
 
+  /* Sub-categories are derived from the products that are actually published,
+     so every link in the bar leads to a non-empty result. They are scoped to
+     the selected main category and follow the admin running order. */
+  const productTypes = useMemo(() => {
+    const inCategory = catalog.filter(
+      (product) => selectedCategory === "All" || product.category === selectedCategory
+    );
+    return orderProductTypes(
+      inCategory.map((product) => product.productType),
+      selectedCategory
+    );
+  }, [catalog, selectedCategory]);
+
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     let result = catalog.filter((product) => {
       const matchesCategory =
         selectedCategory === "All" || product.category === selectedCategory;
+      const matchesType =
+        selectedType === "all" || product.productType === selectedType;
       const matchesSearch =
         !query ||
         [product.name, product.sku, product.category, product.productType]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       const matchesSale = !saleOnly || product.isSale;
-      return matchesCategory && matchesSearch && matchesSale;
+      return matchesCategory && matchesType && matchesSearch && matchesSale;
     });
 
     switch (sortOption) {
@@ -258,7 +289,7 @@ function App() {
     }
 
     return result;
-  }, [catalog, saleOnly, searchTerm, selectedCategory, sortOption]);
+  }, [catalog, saleOnly, searchTerm, selectedCategory, selectedType, sortOption]);
 
   // ================= RENDER =================
 
@@ -292,7 +323,13 @@ function App() {
             <div className="section-heading reveal">
               <span className="eyebrow">THE COLLECTION</span>
               <h2>
-                {saleOnly ? "Sale" : selectedCategory === "All" ? "New Arrivals" : selectedCategory}
+                {saleOnly
+                  ? "Sale"
+                  : selectedType !== "all"
+                    ? selectedType
+                    : selectedCategory === "All"
+                      ? "New Arrivals"
+                      : selectedCategory}
               </h2>
               <p>
                 Fresh from the design studio — wear-tested, season-proof and
@@ -303,11 +340,10 @@ function App() {
             <CategoryFilter
               categories={ALL_CATEGORIES}
               selectedCategory={selectedCategory}
-              onSelectCategory={(cat) => {
-                setSelectedCategory(cat);
-                setSaleOnly(false);
-                scrollToProducts();
-              }}
+              onSelectCategory={(cat) => selectCategory(cat)}
+              productTypes={productTypes}
+              selectedType={selectedType}
+              onSelectType={setSelectedType}
               sortOption={sortOption}
               onSortChange={setSortOption}
               productCount={filteredProducts.length}
