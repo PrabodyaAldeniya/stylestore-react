@@ -112,11 +112,13 @@ function ProductPreviewDialog({ product, onClose }) {
                 .join(", ") || "None"}
             </PreviewRow>
             <PreviewRow label="Visibility">
-              {product.status === "published"
-                ? "Published — visible in the public store"
-                : product.status === "archived"
-                  ? "Archived — hidden, kept for past orders"
-                  : "Draft — hidden from the public store"}
+              {product.isTrashed
+                ? `In the Trash — hidden from the store, kept for ${product.status === "published" ? "publishing" : "past orders"}`
+                : product.status === "published"
+                  ? "Published — visible in the public store"
+                  : product.status === "archived"
+                    ? "Archived — hidden, kept for past orders"
+                    : "Draft — hidden from the public store"}
             </PreviewRow>
           </div>
 

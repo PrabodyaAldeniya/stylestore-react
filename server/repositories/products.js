@@ -18,6 +18,7 @@ const PRODUCT_COLUMNS = `
   p.rating,
   p.rating_count,
   p.status,
+  p.deleted_at,
   p.created_at,
   p.updated_at`;
 
@@ -44,6 +45,9 @@ function toProduct(row, relations = {}) {
   const originalPrice = numberOrNull(row.original_price);
   const stockQuantity = Number(row.stock_quantity || 0);
   const lowStockThreshold = Number(row.low_stock_threshold ?? DEFAULT_LOW_STOCK);
+  // `deleted_at` is the Trash marker: null for every normal product, a
+  // timestamp once the product has been moved to the Trash.
+  const deletedAt = row.deleted_at || null;
   return {
     id: row.id,
     sku: row.sku,
@@ -67,6 +71,8 @@ function toProduct(row, relations = {}) {
     rating: numberOrNull(row.rating) || 0,
     ratingCount: Number(row.rating_count || 0),
     status: row.status,
+    deletedAt,
+    isTrashed: Boolean(deletedAt),
     images: (relations.images || []).map((image) => ({
       id: image.id,
       path: image.path,
@@ -133,9 +139,26 @@ async function loadRelations(connection, rows) {
   return grouped;
 }
 
-function listQuery({ includeDrafts, search, category, productType, status, stock, sort }) {
+function listQuery({
+  includeDrafts,
+  search,
+  category,
+  productType,
+  status,
+  stock,
+  sort,
+  trashOnly,
+}) {
   const conditions = [];
   const values = [];
+
+  // ---- Trash scoping (always applied) ----
+  // Every normal result — the public catalogue, the admin product list, the
+  // admin search and the admin counts — shows only products that are not in
+  // the Trash. The Trash view is the single exception and asks for the
+  // opposite set. Nothing else has to remember this rule.
+  conditions.push(trashOnly ? "p.deleted_at IS NOT NULL" : "p.deleted_at IS NULL");
+
   if (!includeDrafts) {
     conditions.push("p.status = ?");
     values.push(PUBLIC_STATUS);
@@ -182,6 +205,8 @@ function listQuery({ includeDrafts, search, category, productType, status, stock
     "price-desc": "p.price DESC, p.id DESC",
     name: "p.name ASC, p.id ASC",
     "stock-asc": "p.stock_quantity ASC, p.id DESC",
+    // Trash view: most recently trashed first, so the newest entry is on top.
+    "deleted-desc": "p.deleted_at DESC, p.id DESC",
   }[sort] || "p.created_at DESC, p.id DESC";
 
   return {
@@ -206,6 +231,7 @@ export async function listProducts(options = {}, connection = pool) {
     status: options.status,
     stock: options.stock,
     sort: options.sort,
+    trashOnly: Boolean(options.trashOnly),
   });
 
   const [rows] = await connection.query(
@@ -233,15 +259,33 @@ export async function listProducts(options = {}, connection = pool) {
   };
 }
 
+/**
+ * Read one product by id.
+ *
+ * Trash rules:
+ *  - `includeDrafts`  false → only 'published' products (public behaviour).
+ *  - `includeTrashed` false → products in the Trash are treated as absent,
+ *    which is what keeps them out of the public site and out of normal admin
+ *    results. The Trash endpoints pass `includeTrashed: true` to reach them.
+ */
 export async function getProductById(
   id,
-  { includeDrafts = false, connection = pool, forUpdate = false } = {}
+  { includeDrafts = false, includeTrashed = false, connection = pool, forUpdate = false } = {}
 ) {
+  const conditions = ["p.id = ?"];
+  const values = [id];
+  if (!includeDrafts) {
+    conditions.push("p.status = ?");
+    values.push(PUBLIC_STATUS);
+  }
+  if (!includeTrashed) {
+    conditions.push("p.deleted_at IS NULL");
+  }
   const [rows] = await connection.query(
     `SELECT ${PRODUCT_COLUMNS}
        FROM products p
-      WHERE p.id = ?${includeDrafts ? "" : " AND p.status = ?"}${forUpdate ? " FOR UPDATE" : ""}`,
-    includeDrafts ? [id] : [id, PUBLIC_STATUS]
+      WHERE ${conditions.join(" AND ")}${forUpdate ? " FOR UPDATE" : ""}`,
+    values
   );
   if (!rows.length) return null;
   const relations = await loadRelations(connection, rows);
@@ -252,7 +296,7 @@ export async function getPublishedProductForCheckout(id, connection) {
   const [rows] = await connection.query(
     `SELECT ${PRODUCT_COLUMNS}
        FROM products p
-      WHERE p.id = ? AND p.status = ?
+      WHERE p.id = ? AND p.status = ? AND p.deleted_at IS NULL
       FOR UPDATE`,
     [id, PUBLIC_STATUS]
   );
@@ -292,7 +336,11 @@ export async function createProduct(data, connection = pool) {
     );
     const productId = result.insertId;
     await replaceProductOptions(productId, data.sizes, data.colours, connection);
-    return getProductById(productId, { includeDrafts: true, connection });
+    return getProductById(productId, {
+      includeDrafts: true,
+      includeTrashed: true,
+      connection,
+    });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       throw productError("A product with this SKU already exists.", "SKU_EXISTS", 409);
@@ -301,8 +349,17 @@ export async function createProduct(data, connection = pool) {
   }
 }
 
+/**
+ * Save the editable product fields. `deleted_at` is intentionally never part
+ * of this statement: editing a product that sits in the Trash updates it in
+ * place and it stays in the Trash until somebody restores it.
+ */
 export async function updateProduct(id, data, connection = pool) {
-  const existing = await getProductById(id, { includeDrafts: true, connection });
+  const existing = await getProductById(id, {
+    includeDrafts: true,
+    includeTrashed: true,
+    connection,
+  });
   if (!existing) throw productError("Product not found.", "NOT_FOUND", 404);
 
   try {
@@ -337,7 +394,7 @@ export async function updateProduct(id, data, connection = pool) {
       ]
     );
     await replaceProductOptions(id, data.sizes, data.colours, connection);
-    return getProductById(id, { includeDrafts: true, connection });
+    return getProductById(id, { includeDrafts: true, includeTrashed: true, connection });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       throw productError("A product with this SKU already exists.", "SKU_EXISTS", 409);
@@ -370,9 +427,72 @@ async function replaceProductOptions(productId, sizes, colours, connection) {
   }
 }
 
-export async function deleteProduct(id, connection = pool) {
-  const [result] = await connection.query("DELETE FROM products WHERE id = ?", [id]);
+// ========================================================
+// TRASH (soft delete)
+// --------------------------------------------------------
+// Moving a product to the Trash only stamps `deleted_at`. The row, its images,
+// its sizes and its colours are all kept, so the product can be restored with
+// its original Draft / Published / Archived status. Permanent deletion is a
+// separate, explicitly confirmed step and is the only query here that removes
+// a product row.
+// ========================================================
+
+/** How many products are currently in the Trash (shown on the admin Trash page). */
+export async function countTrashedProducts(connection = pool) {
+  const [rows] = await connection.query(
+    "SELECT COUNT(*) AS total FROM products WHERE deleted_at IS NOT NULL"
+  );
+  return Number(rows[0]?.total || 0);
+}
+
+/**
+ * Soft delete: stamp `deleted_at` and leave everything else — including
+ * `status` — untouched. Returns false when the product is already in the
+ * Trash, so the caller can report that instead of pretending it moved.
+ */
+export async function moveProductToTrash(id, connection = pool) {
+  const [result] = await connection.query(
+    "UPDATE products SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL",
+    [id]
+  );
   return result.affectedRows > 0;
+}
+
+/**
+ * Undo a soft delete: clear `deleted_at`. `status` is never touched, so a
+ * product that was published before it was trashed becomes public again, and a
+ * draft or archived product returns exactly as it was.
+ */
+export async function restoreProductFromTrash(id, connection = pool) {
+  const [result] = await connection.query(
+    "UPDATE products SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+    [id]
+  );
+  return result.affectedRows > 0;
+}
+
+/**
+ * Hard delete, restricted to products that are already in the Trash so a
+ * published product can never be destroyed by a stray request. The
+ * product_images / product_sizes / product_colours rows go with it through the
+ * existing ON DELETE CASCADE foreign keys.
+ *
+ * The image paths are returned (not unlinked here) so the route can delete
+ * only the files that no order still references.
+ */
+export async function deleteProductPermanently(id, connection = pool) {
+  const [images] = await connection.query(
+    "SELECT path FROM product_images WHERE product_id = ?",
+    [id]
+  );
+  const [result] = await connection.query(
+    "DELETE FROM products WHERE id = ? AND deleted_at IS NOT NULL",
+    [id]
+  );
+  if (result.affectedRows === 0) {
+    return { deleted: false, imagePaths: [] };
+  }
+  return { deleted: true, imagePaths: images.map((image) => image.path) };
 }
 
 export async function addProductImage(
@@ -482,7 +602,9 @@ export async function getProductImagePath(productId, connection = pool) {
 /**
  * Category → product type facets used by the public subcategory navigation
  * and by the admin filter dropdowns. Published-only for the public API;
- * the admin API passes includeDrafts to see every product type.
+ * the admin API passes includeDrafts to see every status. Products in the
+ * Trash are never counted, otherwise a trashed product would keep a filter
+ * option alive with nothing behind it.
  */
 export async function listProductFacets(
   { includeDrafts = false } = {},
@@ -491,9 +613,9 @@ export async function listProductFacets(
   const [rows] = await connection.query(
     `SELECT p.category, p.product_type, COUNT(*) AS total
        FROM products p
-      ${includeDrafts ? "" : "WHERE p.status = ?"}
-      GROUP BY p.category, p.product_type
-      ORDER BY p.category ASC, total DESC, p.product_type ASC`,
+       WHERE p.deleted_at IS NULL${includeDrafts ? "" : " AND p.status = ?"}
+       GROUP BY p.category, p.product_type
+       ORDER BY p.category ASC, total DESC, p.product_type ASC`,
     includeDrafts ? [] : [PUBLIC_STATUS]
   );
 
@@ -517,7 +639,32 @@ export async function listProductFacets(
     }))
     .sort((a, b) => a.category.localeCompare(b.category));
 
-  return { categories };
+  // The categories that only exist in the Trash. They are deliberately kept in
+  // a separate list so the normal product filters never offer a category with
+  // nothing to show, while the Trash page can still filter by one.
+  const [trashRows] = await connection.query(
+    `SELECT p.category, COUNT(*) AS total
+       FROM products p
+      WHERE p.deleted_at IS NOT NULL
+      GROUP BY p.category
+      ORDER BY p.category ASC`
+  );
+
+  const trashedCategories = trashRows
+    .map((row) => ({
+      category: row.category || "Uncategorised",
+      total: Number(row.total || 0),
+    }))
+    .sort((a, b) => a.category.localeCompare(b.category));
+
+  return { categories, trashedCategories };
 }
 
-export { DEFAULT_LOW_STOCK, STATUSES, STOCK_FILTERS, productError, stockStateFor, toProduct };
+export {
+  DEFAULT_LOW_STOCK,
+  STATUSES,
+  STOCK_FILTERS,
+  productError,
+  stockStateFor,
+  toProduct,
+};

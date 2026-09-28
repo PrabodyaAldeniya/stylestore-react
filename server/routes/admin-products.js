@@ -2,14 +2,17 @@ import express from "express";
 import pool from "../db.js";
 import {
   addProductImage,
+  countTrashedProducts,
   createProduct,
-  deleteProduct,
+  deleteProductPermanently,
   getProductById,
   listProductFacets,
   listProducts,
+  moveProductToTrash,
   productError,
   removeProductImage,
   removeProductImages,
+  restoreProductFromTrash,
   setPrimaryProductImage,
   updateProduct,
 } from "../repositories/products.js";
@@ -31,7 +34,12 @@ import {
 import { requireAdmin } from "../lib/auth.js";
 
 const router = express.Router();
+// Every route below sits behind the existing admin session check.
 router.use(requireAdmin);
+
+// The word an admin has to type before a product is destroyed for good. It is
+// echoed back in the error so the UI can show exactly what is expected.
+const PERMANENT_DELETE_CONFIRMATION = "DELETE";
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -178,29 +186,48 @@ function addFilesToProduct(productId, files, connection, existingImageCount = 0)
   );
 }
 
-async function removeUnreferencedImage(image) {
+async function removeUnreferencedImagePath(imagePath) {
+  // order_items keeps its own copy of the photo path it was bought with, so a
+  // file that a previous order still points at is never removed from disk.
   const [rows] = await pool.execute(
     "SELECT 1 FROM order_items WHERE product_image_path = ? LIMIT 1",
-    [image.path]
+    [imagePath]
   );
-  if (rows.length === 0) await removeImagePath(image.path);
+  if (rows.length === 0) await removeImagePath(imagePath);
 }
 
+async function removeUnreferencedImage(image) {
+  await removeUnreferencedImagePath(image.path);
+}
+
+/** Shared filter parsing for the product list and the Trash list. */
+function listFiltersFromQuery(query) {
+  return {
+    page: query.page,
+    pageSize: query.pageSize,
+    search: query.search,
+    category: query.category,
+    productType: query.productType,
+    status: parseStatusFilter(query.status),
+    stock: parseStockFilter(query.stock),
+  };
+}
+
+// Normal admin product list. Trashed products are excluded by the repository,
+// and `trashCount` lets the admin UI show how many are waiting in the Trash.
 router.get(
   "/",
   asyncRoute(async (req, res) => {
     const result = await listProducts({
       includeDrafts: true,
-      page: req.query.page,
-      pageSize: req.query.pageSize,
-      search: req.query.search,
-      category: req.query.category,
-      productType: req.query.productType,
-      status: parseStatusFilter(req.query.status),
-      stock: parseStockFilter(req.query.stock),
+      ...listFiltersFromQuery(req.query),
       sort: req.query.sort,
     });
-    res.json({ success: true, ...result });
+    res.json({
+      success: true,
+      ...result,
+      trashCount: await countTrashedProducts(),
+    });
   })
 );
 
@@ -214,7 +241,34 @@ router.get(
       maxImageCount: MAX_IMAGE_COUNT,
       maxImageBytes: MAX_IMAGE_BYTES,
       statuses: PRODUCT_STATUSES,
+      trashCount: await countTrashedProducts(),
+      permanentDeleteConfirmation: PERMANENT_DELETE_CONFIRMATION,
       ...facets,
+    });
+  })
+);
+
+// ------------------------------------------------------------
+// TRASH — soft delete endpoints
+// ------------------------------------------------------------
+// Declared before "/:id" so "trash" is never parsed as a product id.
+// Every response is JSON in the same shape as the rest of this router, and
+// every route already sits behind requireAdmin.
+// ------------------------------------------------------------
+router.get(
+  "/trash",
+  asyncRoute(async (req, res) => {
+    const result = await listProducts({
+      // Trash shows every status a trashed product kept, newest first.
+      includeDrafts: true,
+      trashOnly: true,
+      sort: req.query.sort || "deleted-desc",
+      ...listFiltersFromQuery(req.query),
+    });
+    res.json({
+      success: true,
+      ...result,
+      trashCount: await countTrashedProducts(),
     });
   })
 );
@@ -251,11 +305,14 @@ router.post(
   })
 );
 
+// One product, including one that is in the Trash, so the admin Trash page
+// and the editor can both still show the full details before restoring.
 router.get(
   "/:id",
   asyncRoute(async (req, res) => {
     const product = await getProductById(parseProductId(req.params.id), {
       includeDrafts: true,
+      includeTrashed: true,
     });
     if (!product) throw productError("Product not found.", "NOT_FOUND", 404);
     res.json({ success: true, product });
@@ -317,7 +374,7 @@ router.put(
           }
         }
 
-        return getProductById(id, { includeDrafts: true, connection });
+        return getProductById(id, { includeDrafts: true, includeTrashed: true, connection });
       });
     } catch (error) {
       await removeUploadedFiles(req.uploadedFiles || []);
@@ -341,7 +398,12 @@ router.patch(
       );
     }
     const product = await withTransaction(async (connection) => {
-      const existing = await getProductById(id, { includeDrafts: true, connection, forUpdate: true });
+      const existing = await getProductById(id, {
+        includeDrafts: true,
+        includeTrashed: true,
+        connection,
+        forUpdate: true,
+      });
       if (!existing) throw productError("Product not found.", "NOT_FOUND", 404);
       return updateProduct(id, { ...existing, status }, connection);
     });
@@ -398,15 +460,170 @@ router.delete(
   })
 );
 
+// ========================================================
+// TRASH ACTIONS
+// --------------------------------------------------------
+// The shared "move to Trash" step. It only stamps `deleted_at`, so the product
+// row, its photos, sizes and colours all survive and the product can be
+// restored later with the status it had before.
+// ========================================================
+async function trashProduct(id) {
+  return withTransaction(async (connection) => {
+    // FOR UPDATE so two clicks at once cannot both stamp the same row.
+    const existing = await getProductById(id, {
+      includeDrafts: true,
+      includeTrashed: true,
+      connection,
+      forUpdate: true,
+    });
+    if (!existing) throw productError("Product not found.", "NOT_FOUND", 404);
+    if (existing.isTrashed) {
+      throw productError(
+        `"${existing.name}" is already in the Trash.`,
+        "ALREADY_TRASHED",
+        409
+      );
+    }
+    const moved = await moveProductToTrash(id, connection);
+    if (!moved) {
+      throw productError("Product not found.", "NOT_FOUND", 404);
+    }
+    return getProductById(id, {
+      includeDrafts: true,
+      includeTrashed: true,
+      connection,
+    });
+  });
+}
+
+function trashResponseMessage(product) {
+  return `Product moved to Trash: "${product.name}". You can restore it from the Trash.`;
+}
+
+/** POST /api/admin/products/:id/trash — soft delete. */
+router.post(
+  "/:id/trash",
+  asyncRoute(async (req, res) => {
+    const product = await trashProduct(parseProductId(req.params.id));
+    res.json({
+      success: true,
+      product,
+      trashCount: await countTrashedProducts(),
+      message: trashResponseMessage(product),
+    });
+  })
+);
+
+/**
+ * DELETE /api/admin/products/:id — kept as a soft delete for any older
+ * bookmarked/tab that still uses it. It behaves exactly like POST /:id/trash:
+ * nothing is destroyed.
+ */
 router.delete(
   "/:id",
   asyncRoute(async (req, res) => {
+    const product = await trashProduct(parseProductId(req.params.id));
+    res.json({
+      success: true,
+      product,
+      trashCount: await countTrashedProducts(),
+      message: trashResponseMessage(product),
+    });
+  })
+);
+
+/** POST /api/admin/products/:id/restore — clears `deleted_at`, keeps `status`. */
+router.post(
+  "/:id/restore",
+  asyncRoute(async (req, res) => {
+    const product = await withTransaction(async (connection) => {
+      const existing = await getProductById(parseProductId(req.params.id), {
+        includeDrafts: true,
+        includeTrashed: true,
+        connection,
+        forUpdate: true,
+      });
+      if (!existing) throw productError("Product not found.", "NOT_FOUND", 404);
+      if (!existing.isTrashed) {
+        throw productError(
+          `"${existing.name}" is not in the Trash.`,
+          "NOT_TRASHED",
+          409
+        );
+      }
+      const restored = await restoreProductFromTrash(existing.id, connection);
+      if (!restored) throw productError("Product not found.", "NOT_FOUND", 404);
+      return getProductById(existing.id, {
+        includeDrafts: true,
+        includeTrashed: true,
+        connection,
+      });
+    });
+    res.json({
+      success: true,
+      product,
+      trashCount: await countTrashedProducts(),
+      // A restored product is only visible in the store again when its status
+      // was (and still is) "published".
+      publicAgain: product.status === "published",
+      message: `Product restored successfully: "${product.name}" is back in your product list.`,
+    });
+  })
+);
+
+/**
+ * DELETE /api/admin/products/:id/permanent — the only endpoint that destroys
+ * data. It is guarded three times over:
+ *   1. the admin session (requireAdmin, applied to the whole router),
+ *   2. the product must already be in the Trash,
+ *   3. the request must carry the exact confirmation word.
+ */
+router.delete(
+  "/:id/permanent",
+  asyncRoute(async (req, res) => {
     const id = parseProductId(req.params.id);
-    const product = await getProductById(id, { includeDrafts: true });
-    if (!product) throw productError("Product not found.", "NOT_FOUND", 404);
-    await withTransaction((connection) => deleteProduct(id, connection));
-    await Promise.all(product.images.map((image) => removeUnreferencedImage(image)));
-    res.json({ success: true });
+    const confirmation = String(req.body?.confirm || "").trim();
+    if (confirmation !== PERMANENT_DELETE_CONFIRMATION) {
+      throw productError(
+        `Type ${PERMANENT_DELETE_CONFIRMATION} to confirm this permanent deletion.`,
+        "CONFIRMATION_REQUIRED",
+        422
+      );
+    }
+
+    const outcome = await withTransaction(async (connection) => {
+      const existing = await getProductById(id, {
+        includeDrafts: true,
+        includeTrashed: true,
+        connection,
+        forUpdate: true,
+      });
+      if (!existing) throw productError("Product not found.", "NOT_FOUND", 404);
+      if (!existing.isTrashed) {
+        throw productError(
+          "Only products in the Trash can be permanently deleted. Move it to the Trash first.",
+          "NOT_TRASHED",
+          409
+        );
+      }
+      // Images, sizes and colours go with the product through the existing
+      // ON DELETE CASCADE keys. Orders are untouched: order_items holds its own
+      // copy of the name, SKU, price and photo path, with no foreign key to
+      // products, so past orders keep every detail.
+      const result = await deleteProductPermanently(id, connection);
+      if (!result.deleted) throw productError("Product not found.", "NOT_FOUND", 404);
+      return { product: existing, imagePaths: result.imagePaths };
+    });
+
+    // Only unlink files no order still points at.
+    await Promise.all(outcome.imagePaths.map((imagePath) => removeUnreferencedImagePath(imagePath)));
+
+    res.json({
+      success: true,
+      productName: outcome.product.name,
+      trashCount: await countTrashedProducts(),
+      message: `Product permanently deleted: "${outcome.product.name}" cannot be restored.`,
+    });
   })
 );
 

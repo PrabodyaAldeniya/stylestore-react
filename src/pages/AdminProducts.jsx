@@ -2,8 +2,13 @@
    ADMIN PRODUCT LIST PAGE
    --------------------------------------------------------
    Search and filter every product, then edit, preview,
-   publish/hide, archive or delete. Nothing here needs a
-   code change — all actions hit the protected admin API.
+   publish/hide, archive or move to the Trash. Nothing here
+   needs a code change — all actions hit the protected admin
+   API.
+
+   Delete is a SOFT delete: it moves the product to the Trash,
+   where it can be viewed, restored or deleted for good. See
+   AdminTrash.jsx for that screen.
    ======================================================== */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -13,15 +18,16 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { formatLKR } from "../format";
 import {
-  deleteAdminProduct,
   getAdminCatalogueMeta,
   listAdminProducts,
   logoutAdmin,
+  moveProductToTrash,
   updateAdminProductStatus,
 } from "../lib/adminApi";
 import { categoryOptions } from "../lib/adminCatalog";
@@ -80,6 +86,8 @@ export default function AdminProducts() {
   const [facets, setFacets] = useState([]);
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
+  // How many products are waiting in the Trash; drives the header badge.
+  const [trashCount, setTrashCount] = useState(0);
   const [listStatus, setListStatus] = useState("loading");
   const [listError, setListError] = useState("");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -103,6 +111,7 @@ export default function AdminProducts() {
       });
       setProducts(result.products || []);
       setTotal(Number(result.total || 0));
+      setTrashCount(Number(result.trashCount || 0));
       setListStatus("success");
     } catch (error) {
       if (error.code === "AUTH_REQUIRED") {
@@ -186,6 +195,8 @@ export default function AdminProducts() {
     );
   };
 
+  // Archive keeps a product safely but inactive. It stays a normal row and
+  // never enters the Trash, which is a separate, restorable bin.
   const archiveProduct = (product) => {
     const ok = window.confirm(
       `Archive "${product.name}"?\n\nIt disappears from the public website but stays safe here, and past orders keep their saved name, photo, price and size. You can restore it later.`
@@ -206,12 +217,18 @@ export default function AdminProducts() {
     );
   };
 
+  // The Delete button is a soft delete: the product is hidden from the shop
+  // straight away but nothing is destroyed, so it can be restored from Trash.
   const deleteProduct = (product) => {
     const ok = window.confirm(
-      `Delete "${product.name}" permanently?\n\nUse Archive instead if you only want to hide it — archiving keeps old orders intact. Deleting cannot be undone.`
+      `Move "${product.name}" to the Trash?\n\nIt disappears from your website and your product list immediately, but the product, its photos and its details are all kept. You can restore it any time from the Trash.\n\nUse Archive instead if you want to keep it as an inactive product.`
     );
     if (!ok) return;
-    runAction(product, () => deleteAdminProduct(product.id), `"${product.name}" was deleted.`);
+    runAction(
+      product,
+      () => moveProductToTrash(product.id),
+      `Product moved to Trash. "${product.name}" can be restored from the Trash.`
+    );
   };
 
   const signOut = async () => {
@@ -236,6 +253,20 @@ export default function AdminProducts() {
           </p>
         </div>
         <div className="admin-header-actions">
+          <button
+            type="button"
+            className="adm-button adm-button-trash"
+            onClick={() => navigate("/admin/trash")}
+            title="Open the Trash to view, restore or permanently delete products"
+          >
+            <Trash2 size={16} aria-hidden /> Trash
+            <span className="adm-trash-count" aria-hidden>
+              {trashCount}
+            </span>
+            <span className="adm-sr-only">
+              {trashCount} product{trashCount === 1 ? "" : "s"} in Trash
+            </span>
+          </button>
           <button
             type="button"
             className="adm-button adm-button-primary"
@@ -412,6 +443,7 @@ export default function AdminProducts() {
         )}
 
         <AdminProductTable
+          variant="active"
           products={products}
           status={listStatus}
           error={listError}
@@ -422,12 +454,21 @@ export default function AdminProducts() {
           onToggleStatus={toggleStatus}
           onArchive={archiveProduct}
           onRestore={restoreProduct}
-          onDelete={deleteProduct}
+          onMoveToTrash={deleteProduct}
         />
 
         <p className="adm-price-hint">
           Prices are stored as plain numbers in the database and shown as{" "}
-          {formatLKR(7800)} in the shop.
+          {formatLKR(7800)} in the shop. The Delete button only moves a product
+          to the Trash — nothing is destroyed, and{" "}
+          <button
+            type="button"
+            className="adm-link-button"
+            onClick={() => navigate("/admin/trash")}
+          >
+            {trashCount} product{trashCount === 1 ? " is" : "s are"} waiting in the Trash
+          </button>
+          .
         </p>
       </section>
 

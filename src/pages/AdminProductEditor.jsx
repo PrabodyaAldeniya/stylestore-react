@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Archive,
+  ArchiveRestore,
   ArrowLeft,
   Check,
   Eye,
@@ -43,6 +44,8 @@ import {
   getAdminCatalogueMeta,
   getAdminProduct,
   logoutAdmin,
+  moveProductToTrash,
+  restoreTrashedProduct,
   updateAdminProduct,
   updateAdminProductStatus,
 } from "../lib/adminApi";
@@ -678,6 +681,66 @@ export default function AdminProductEditor() {
     }
   };
 
+  // ---- Restore / Move to Trash --------------------------------------
+  // Archive and Trash are deliberately different: archiving leaves a normal,
+  // inactive product, while the Trash hides the product from the shop and
+  // keeps it only as a restorable copy. Neither destroys anything.
+  const moveToTrash = async () => {
+    if (saving || dirty) {
+      if (!window.confirm("You have unsaved changes. Move this product to the Trash anyway?")) {
+        return;
+      }
+    }
+    const ok = window.confirm(
+      `Move "${form.name || "this product"}" to the Trash?\n\nIt disappears from your website immediately, but the product, its photos and its details are all kept. You can restore it with its current status from the Trash.`
+    );
+    if (!ok) return;
+    setSaving(true);
+    try {
+      const result = await moveProductToTrash(productId);
+      navigate("/admin/products", {
+        replace: true,
+        state: {
+          notice: {
+            type: "success",
+            message: `Product moved to Trash. "${result.product?.name || form.name}" can be restored from the Trash.`,
+          },
+        },
+      });
+    } catch (error) {
+      if (error.code === "AUTH_REQUIRED") {
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      flash("error", error.message || "The product could not be moved to the Trash.");
+      setSaving(false);
+    }
+  };
+
+  const restoreFromTrash = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const result = await restoreTrashedProduct(productId);
+      setProduct(result.product);
+      setDirty(false);
+      flash(
+        "success",
+        `Product restored successfully. "${result.product.name}" is back in your product list${
+          result.publicAgain ? " and live in the store again" : ""
+        }.`
+      );
+    } catch (error) {
+      if (error.code === "AUTH_REQUIRED") {
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      flash("error", error.message || "The product could not be restored.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ---- Render --------------------------------------------------------
   if (loading) {
     return (
@@ -730,6 +793,33 @@ export default function AdminProductEditor() {
           </button>
         </div>
       </header>
+
+      {/* A product in the Trash stays fully editable and fully intact, but it
+          is not in the shop. Say so plainly instead of letting the owner
+          wonder why publishing it changes nothing. */}
+      {editing && product?.isTrashed && (
+        <div className="adm-notice adm-notice-trash" role="status">
+          <Trash2 size={16} aria-hidden />
+          <span>
+            <strong>This product is in the Trash.</strong> It is hidden from the
+            public website and from your product list. Restore it to bring it
+            back as a {product.status} product.
+          </span>
+          <button
+            type="button"
+            className="adm-button adm-button-trash"
+            onClick={restoreFromTrash}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="spin" size={15} aria-hidden />
+            ) : (
+              <ArchiveRestore size={15} aria-hidden />
+            )}
+            Restore
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div
@@ -1367,6 +1457,20 @@ export default function AdminProductEditor() {
                 disabled={saving}
               >
                 <Archive size={16} aria-hidden /> Archive
+              </button>
+            )}
+
+            {/* The Trash is a soft delete, so it is only offered for products
+                that are not already in the Trash. */}
+            {editing && !product?.isTrashed && (
+              <button
+                type="button"
+                className="adm-button adm-button-danger"
+                onClick={moveToTrash}
+                disabled={saving}
+                title="Hide this product from the shop and keep it restorable in the Trash"
+              >
+                <Trash2 size={16} aria-hidden /> Move to Trash
               </button>
             )}
 

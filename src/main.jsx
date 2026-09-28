@@ -12,6 +12,7 @@ import OrderSuccess from "./pages/OrderSuccess.jsx";
 import OrderHistory from "./pages/OrderHistory.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import AdminProducts from "./pages/AdminProducts.jsx";
+import AdminTrash from "./pages/AdminTrash.jsx";
 import AdminProductEditor from "./pages/AdminProductEditor.jsx";
 import RequireAdmin from "./components/admin/RequireAdmin.jsx";
 import PromoPopup from "./components/PromoPopup.jsx";
@@ -35,6 +36,9 @@ createRoot(document.getElementById("root")).render(
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route element={<RequireAdmin />}>
             <Route path="/admin/products" element={<AdminProducts />} />
+            {/* The Trash (soft delete) screen. Declared before the editor so
+                "trash" is never read as a product id. */}
+            <Route path="/admin/trash" element={<AdminTrash />} />
             {/* key forces a fresh editor per route so unsaved state from one
                 product never bleeds into another. */}
             <Route path="/admin/products/new" element={<AdminProductEditor key="new" />} />

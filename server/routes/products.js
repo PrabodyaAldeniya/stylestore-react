@@ -36,8 +36,10 @@ router.get("/", async (req, res, next) => {
 router.get("/categories", async (_req, res, next) => {
   try {
     const { default: pool } = await import("../db.js");
+    // `deleted_at IS NULL` keeps products in the Trash out of the public
+    // category navigation, exactly like every other public read.
     const [rows] = await pool.query(
-      "SELECT DISTINCT category FROM products WHERE status = 'published' ORDER BY category"
+      "SELECT DISTINCT category FROM products WHERE status = 'published' AND deleted_at IS NULL ORDER BY category"
     );
     res.json({ success: true, categories: rows.map((row) => row.category) });
   } catch (error) {
@@ -47,10 +49,12 @@ router.get("/categories", async (_req, res, next) => {
 
 // Category + product-type navigation for the public catalogue. Declared
 // before "/:id" so "facets" is not parsed as a product id.
+// Only `categories` is returned: `trashedCategories` stays admin-only, so a
+// visitor can never learn how many deleted products exist.
 router.get("/facets", async (_req, res, next) => {
   try {
-    const facets = await listProductFacets();
-    res.json({ success: true, ...facets });
+    const { categories } = await listProductFacets();
+    res.json({ success: true, categories });
   } catch (error) {
     next(error);
   }

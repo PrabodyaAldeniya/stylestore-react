@@ -48,6 +48,15 @@ export function listAdminProducts(params = {}) {
   return request(`/api/admin/products${query.toString() ? `?${query}` : ""}`);
 }
 
+/** Products currently in the Trash (soft deleted, still restorable). */
+export function listTrashedProducts(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  return request(`/api/admin/products/trash${query.toString() ? `?${query}` : ""}`);
+}
+
 export function getAdminCatalogueMeta() {
   return request("/api/admin/products/meta");
 }
@@ -88,6 +97,30 @@ export function deleteAdminProductImage(id, imageId) {
   );
 }
 
-export function deleteAdminProduct(id) {
-  return request(`/api/admin/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+/**
+ * Soft delete — the "Delete" button in the admin product list. The product is
+ * moved to the Trash: hidden from the store, fully restorable, and its database
+ * record and uploaded images are left untouched.
+ */
+export function moveProductToTrash(id) {
+  return request(`/api/admin/products/${encodeURIComponent(id)}/trash`, { method: "POST" });
+}
+
+/**
+ * Clear `deleted_at` and bring the product back with the status it had before
+ * (Draft, Published or Archived).
+ */
+export function restoreTrashedProduct(id) {
+  return request(`/api/admin/products/${encodeURIComponent(id)}/restore`, { method: "POST" });
+}
+
+/**
+ * The only destructive call. The server only accepts it from the Trash and
+ * only when `confirmation` is the exact word "DELETE".
+ */
+export function permanentlyDeleteProduct(id, confirmation = "DELETE") {
+  return request(`/api/admin/products/${encodeURIComponent(id)}/permanent`, {
+    method: "DELETE",
+    body: JSON.stringify({ confirm: confirmation }),
+  });
 }

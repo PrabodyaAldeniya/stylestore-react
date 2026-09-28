@@ -85,6 +85,11 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- 'published' rows are visible on the public website.
 -- `low_stock_threshold` is the per-product "low stock" warning
 -- level used by the admin product form and list.
+-- `deleted_at` powers the Trash (soft delete). NULL = the product
+-- is a normal row. A timestamp = the product was moved to the
+-- Trash: the row and its images are kept, the product is hidden
+-- from the public website and from normal admin results, and it
+-- can be restored with its original status intact.
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS products (
   id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -104,11 +109,13 @@ CREATE TABLE IF NOT EXISTS products (
   rating            DECIMAL(2,1) NOT NULL DEFAULT 0.0,
   rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
   status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
+  deleted_at        DATETIME     NULL,
   created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY sku (sku),
   KEY idx_products_status (status),
+  KEY idx_products_deleted_at (deleted_at),
   KEY idx_products_category (category),
   KEY idx_products_price (price)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -265,6 +272,30 @@ SET @cols := (
 );
 SET @sql := IF(@cols = 0,
   'ALTER TABLE products ADD COLUMN low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5 AFTER stock_quantity',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ---- Trash (soft delete) migration -------------------------------
+-- `deleted_at` is nullable and additive, so this never rewrites or drops an
+-- existing table or a single existing product. Products that are already in
+-- the catalogue keep deleted_at = NULL and behave exactly as before.
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'deleted_at'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE products ADD COLUMN deleted_at DATETIME NULL AFTER status',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND INDEX_NAME = 'idx_products_deleted_at'
+);
+SET @sql := IF(@idx = 0,
+  'ALTER TABLE products ADD KEY idx_products_deleted_at (deleted_at)',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

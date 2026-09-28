@@ -163,6 +163,20 @@
   color: #4c2a8a;
 }
 
+/* Trash banner — deliberately alarming, but still inside the design. */
+.adm-notice-trash {
+  align-items: center;
+  flex-wrap: wrap;
+  border-color: #e2b3bc;
+  background: #fdeff1;
+  color: #8c2637;
+}
+
+.adm-notice-trash .adm-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+}
+
 .adm-notice-close {
   flex: 0 0 auto;
   display: inline-flex;
@@ -242,6 +256,63 @@
   background: #f9dfe3;
 }
 
+/* The one destructive action: solid red, never used outside the Trash. */
+.adm-button-danger-solid {
+  background: #b3263e;
+  color: #fff;
+}
+
+.adm-button-danger-solid:hover:not(:disabled) {
+  background: #8e1d31;
+}
+
+/* Trash entry point in the admin header. */
+.adm-button-trash {
+  border-color: #e2b3bc;
+  background: var(--warm-white);
+  color: #8c2637;
+}
+
+.adm-button-trash:hover:not(:disabled) {
+  border-color: #b3263e;
+  background: #fdeff1;
+  color: #8e1d31;
+}
+
+/* Count badge shown on the Trash button and in the Trash page heading. */
+.adm-trash-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: #b3263e;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-header h1 .adm-trash-count {
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* Visually hidden, still announced by screen readers. */
+.adm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .adm-button-quiet {
   background: none;
   color: #6b6070;
@@ -279,6 +350,11 @@
   gap: 10px;
   align-items: end;
   margin-bottom: 14px;
+}
+
+/* The Trash page has fewer filters, so it uses its own track count. */
+.adm-filters-trash {
+  grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) auto;
 }
 
 .adm-filter {
@@ -356,9 +432,17 @@
 }
 
 .adm-price-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   margin: 14px 0 0;
   color: #6b6070;
   font-size: 0.76rem;
+}
+
+.adm-price-hint svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .adm-state {
@@ -418,6 +502,13 @@
 
 .adm-table-row:hover {
   border-color: var(--sand-mid);
+}
+
+/* Trashed rows read as "not in the shop" without hiding anything. */
+.adm-table-row.is-trashed {
+  border-style: dashed;
+  border-color: #e2b3bc;
+  background: #fffafb;
 }
 
 .adm-cell {
@@ -552,6 +643,20 @@
   color: #5b5163;
 }
 
+/* "In Trash" badge — sits next to the status it will be restored with. */
+.adm-status-trashed {
+  background: #b3263e;
+  color: #fff;
+}
+
+.adm-trashed-at {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  color: #7a6f7e;
+  font-size: 0.68rem;
+}
+
 .adm-tag {
   display: inline-flex;
   margin-left: 4px;
@@ -620,6 +725,136 @@
 .admin-form {
   display: grid;
   gap: 16px;
+}
+
+/* ---- Permanent delete dialog ---- */
+.adm-danger {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
+  padding: 26px 24px 22px;
+  border: 1px solid #e2b3bc;
+  border-radius: 20px;
+  background: var(--warm-white);
+  box-shadow: 0 24px 60px rgba(60, 18, 32, 0.28);
+}
+
+.adm-danger-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding-right: 34px;
+}
+
+.adm-danger-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: #fdeff1;
+  color: #b3263e;
+}
+
+.adm-danger-head h2 {
+  margin: 0;
+  color: var(--plum);
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.adm-danger-name {
+  margin: 4px 0 0;
+  color: #b3263e;
+  font-size: 0.9rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.adm-danger-body {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 16px;
+}
+
+.adm-danger-warning {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid #eec2ca;
+  border-radius: 12px;
+  background: #fdeff1;
+  color: #8c2637;
+  font-size: 0.88rem;
+}
+
+.adm-danger-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 20px;
+  color: #514655;
+  font-size: 0.85rem;
+}
+
+.adm-danger-list .is-safe {
+  color: #17653b;
+}
+
+.adm-danger-hint {
+  margin: 0;
+  color: #6b6070;
+  font-size: 0.82rem;
+}
+
+.adm-danger-confirm {
+  display: grid;
+  gap: 7px;
+  color: #40353f;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.adm-danger-confirm code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #fdeff1;
+  color: #b3263e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+
+.admin-list-panel .adm-danger-confirm input,
+.adm-danger-confirm input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 13px;
+  border: 1px solid #e2b3bc;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.adm-danger-confirm input:focus {
+  border-color: #b3263e;
+  outline: 2px solid rgba(179, 38, 62, 0.18);
+  outline-offset: 1px;
+}
+
+.adm-danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 18px;
 }
 
 .adm-section {
@@ -1691,7 +1926,8 @@
 
 /* ---- Responsive ---- */
 @media (max-width: 1180px) {
-  .adm-filters {
+  .adm-filters,
+  .adm-filters-trash {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1772,6 +2008,7 @@
   }
 
   .adm-filters,
+  .adm-filters-trash,
   .adm-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1838,6 +2075,15 @@
   }
 
   .adm-actions .adm-button {
+    flex: 1 1 100%;
+  }
+
+  .adm-danger {
+    padding: 20px 16px 18px;
+    border-radius: 16px;
+  }
+
+  .adm-danger-actions .adm-button {
     flex: 1 1 100%;
   }
 

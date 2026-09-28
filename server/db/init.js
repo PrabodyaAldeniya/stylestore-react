@@ -120,6 +120,9 @@ const STATEMENTS = [
       ON DUPLICATE KEY UPDATE code = VALUES(code)`,
 
   // ---- Catalogue products ----
+  // `deleted_at` is the Trash (soft delete) marker. NULL = normal product.
+  // A timestamp = moved to the Trash: kept in the database with its images,
+  // hidden from the public website and normal admin results, restorable.
   `CREATE TABLE IF NOT EXISTS ${q("products")} (
      id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
      sku               VARCHAR(64)  NOT NULL,
@@ -138,11 +141,13 @@ const STATEMENTS = [
      rating            DECIMAL(2,1) NOT NULL DEFAULT 0.0,
      rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
      status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
+     deleted_at        DATETIME     NULL,
      created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
      updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
      UNIQUE KEY sku (sku),
      KEY idx_products_status (status),
+     KEY idx_products_deleted_at (deleted_at),
      KEY idx_products_category (category),
      KEY idx_products_price (price)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -204,6 +209,22 @@ const PRODUCT_ADDITIONS = [
     definition:
       "ADD COLUMN low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5 AFTER stock_quantity",
   },
+  // Trash (soft delete). Nullable and additive, so an existing catalogue keeps
+  // every row: only products moved to the Trash afterwards get a timestamp.
+  {
+    column: "deleted_at",
+    definition: "ADD COLUMN deleted_at DATETIME NULL AFTER status",
+  },
+];
+
+// CREATE TABLE IF NOT EXISTS never adds a key to a table that already exists,
+// so the index that keeps the "is this in the Trash?" lookup fast is checked
+// separately and only added when it is missing.
+const PRODUCT_INDEXES = [
+  {
+    index: "idx_products_deleted_at",
+    definition: "ADD KEY idx_products_deleted_at (deleted_at)",
+  },
 ];
 
 // Additive migrations for discount_codes so a table created by an older run
@@ -219,6 +240,16 @@ async function ensureColumn(connection, table, column, definition) {
   const [rows] = await connection.query(
     "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?",
     [DB_NAME, table, column]
+  );
+  if (rows.length === 0) {
+    await connection.query(`ALTER TABLE ${q(table)} ${definition}`);
+  }
+}
+
+async function ensureIndex(connection, table, index, definition) {
+  const [rows] = await connection.query(
+    "SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?",
+    [DB_NAME, table, index]
   );
   if (rows.length === 0) {
     await connection.query(`ALTER TABLE ${q(table)} ${definition}`);
@@ -249,6 +280,9 @@ export async function initializeDatabase() {
     }
     for (const addition of PRODUCT_ADDITIONS) {
       await ensureColumn(connection, "products", addition.column, addition.definition);
+    }
+    for (const addition of PRODUCT_INDEXES) {
+      await ensureIndex(connection, "products", addition.index, addition.definition);
     }
     for (const addition of DISCOUNT_ADDITIONS) {
       await ensureColumn(connection, "discount_codes", addition.column, addition.definition);

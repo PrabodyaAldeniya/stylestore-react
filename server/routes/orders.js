@@ -640,7 +640,8 @@ router.post("/orders", orderLimiter, async (req, res) => {
       const [stockResult] = await connection.execute(
         `UPDATE products
             SET stock_quantity = stock_quantity - ?
-          WHERE id = ? AND status = 'published' AND stock_quantity >= ?`,
+          WHERE id = ? AND status = 'published' AND deleted_at IS NULL
+            AND stock_quantity >= ?`,
         [line.quantity, line.productId, line.quantity]
       );
       if (stockResult.affectedRows !== 1) {
