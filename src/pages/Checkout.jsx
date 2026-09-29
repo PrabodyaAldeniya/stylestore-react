@@ -161,6 +161,15 @@ function Checkout() {
     afterDiscount >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_METHODS[deliveryMethod].fee;
   const total = afterDiscount + shipping;
 
+  // ============================================
+  // SECTION: Size modes at checkout
+  // --------------------------------------------------------
+  // The size is already decided by the time it reaches the bag: Free
+  // Size lines carry "Free Size" and Not Applicable lines carry null.
+  // This payload just forwards whatever is on the line — the server
+  // applies the size mode rules again, so a stale or hand-edited cart
+  // in localStorage still cannot produce a wrong order line.
+  // ============================================
   const cartPayload = useMemo(
     () =>
       cartItems.map((item) => ({

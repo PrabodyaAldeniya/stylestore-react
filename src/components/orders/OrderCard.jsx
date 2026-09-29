@@ -12,6 +12,10 @@ import OrderStatusBadge from "./OrderStatusBadge";
 ======================================== */
 // Size + colour pill. Hex colours render as a swatch dot; anything else is
 // shown as plain text (e.g. a future named colour).
+//
+// A line with no size renders no size text at all. That is the normal state for
+// a Not Applicable product (a tote bag, say), where "One size" used to be shown
+// as a stand-in and was never true.
 function ItemVariant({ size, color }) {
   const parts = [];
   if (size) parts.push(`Size ${size}`);
@@ -22,7 +26,7 @@ function ItemVariant({ size, color }) {
       {isHexColor(color) && (
         <span className="order-color-swatch" style={{ background: color }} title={color} aria-hidden="true" />
       )}
-      {parts.length > 0 ? parts.join(" · ") : "One size"}
+      {parts.length > 0 ? parts.join(" · ") : null}
     </span>
   );
 }

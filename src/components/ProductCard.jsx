@@ -3,6 +3,7 @@ import { Box, Eye, Heart, ShoppingBag } from "lucide-react";
 
 import { formatLKR } from "../format";
 import { colourLabel, colourSwatch } from "../lib/colours";
+import { selectableSizes, sizeModeOf, SIZE_MODE_STANDARD } from "../lib/sizeModes";
 
 function ProductImage({ src, alt }) {
   const [failed, setFailed] = useState(false);
@@ -47,7 +48,25 @@ function ProductCard({
     ? product.colorOptions
     : (product.colors || []).map((hex) => ({ hex, name: hex }));
   const colourNames = colours.map((colour) => colourLabel(colour));
-  const hasVariantOptions = product.sizes?.length > 0 || colours.length > 0;
+  // ============================================
+  // SECTION: Product size modes
+  // --------------------------------------------------------
+  // The card's button only has to open Quick View when the customer
+  // still has a real choice to make:
+  //
+  //   * colours always need picking, so Quick View opens;
+  //   * a Standard Sizes product with two or more sizes needs picking too;
+  //   * a Free Size size is chosen automatically, and a Not Applicable
+  //     product has no size at all, so neither of them is a reason to
+  //     interrupt a quick add.
+  //
+  // A Standard Sizes product that sells a single size (a cap with one
+  // "Adjustable" size, say) is a quick add too, because there is only
+  // one option to pick.
+  // ============================================
+  const needsSizeChoice =
+    sizeModeOf(product) === SIZE_MODE_STANDARD && selectableSizes(product).length > 1;
+  const hasVariantOptions = needsSizeChoice || colours.length > 0;
   const isOutOfStock = product.isOutOfStock || Number(product.stockQuantity) <= 0;
   // "Featured" is the flag the admin form toggles and the one the default
   // "Featured" sort uses. It is suppressed on sold-out items so the badge

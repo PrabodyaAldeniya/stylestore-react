@@ -16,10 +16,28 @@
      - `originalPrice` is either null or strictly higher than `price`;
        the discount percentage is never stored, it is calculated
        by the product repository from the two numbers
-     - colours are readable names with a matching hex so the admin
-       colour picker highlights the right swatch
-     - sizes come from the recommended size lists for the category
-   ======================================================== */
+      - colours are readable names with a matching hex so the admin
+        colour picker highlights the right swatch
+      - `sizeMode` states how the size list behaves, and the three
+        values come from `server/lib/sizeModes.js` so the seed can
+        never invent a fourth mode:
+
+          standard        the customer picks from the list below
+          free_size       one universal size; the list is normalised
+                          to exactly ["Free Size"] on save
+          not_applicable  no size at all; the list must be empty
+    ======================================================== */
+
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// Imported rather than retyped, so the seed and the API can never
+// disagree about what a size mode is called.
+// ============================================
+import {
+  SIZE_MODE_FREE_SIZE,
+  SIZE_MODE_STANDARD,
+} from "../lib/sizeModes.js";
 
 /* Size lists reused by the catalogue (short names for readability). */
 const WOMEN_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -27,6 +45,9 @@ const MEN_SIZES = ["S", "M", "L", "XL", "XXL"];
 const MEN_WAIST_SIZES = ["28", "30", "32", "34", "36"];
 const KIDS_SIZES = ["2-3 Years", "4-5 Years", "6-7 Years", "8-9 Years", "10-12 Years"];
 const BABY_SIZES = ["2-3 Years", "4-5 Years", "6-7 Years"];
+/* A single universal size. Both of these describe a one-size product, so both
+   are saved with SIZE_MODE_FREE_SIZE — the list is normalised to
+   ["Free Size"] when the row is written. */
 const FREE_SIZE = ["Free Size"];
 const ADJUSTABLE = ["Adjustable"];
 
@@ -68,6 +89,7 @@ const womenProducts = [
     originalPrice: 8900,
     isNew: true,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [DUSTY_ROSE, GREEN, NAVY],
     stockQuantity: 24,
@@ -88,6 +110,7 @@ const womenProducts = [
     originalPrice: null,
     isNew: true,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [WINE, BLACK, GREEN],
     stockQuantity: 12,
@@ -108,6 +131,7 @@ const womenProducts = [
     originalPrice: 7400,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [IVORY, OLIVE, WHITE],
     stockQuantity: 3,
@@ -128,6 +152,7 @@ const womenProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [WHITE, SKY_BLUE, PINK],
     stockQuantity: 31,
@@ -148,6 +173,7 @@ const womenProducts = [
     originalPrice: 5200,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [BLACK, CREAM, MAROON, OLIVE],
     stockQuantity: 0,
@@ -168,6 +194,7 @@ const womenProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [BLACK, BEIGE, NAVY],
     stockQuantity: 19,
@@ -188,6 +215,7 @@ const womenProducts = [
     originalPrice: 8200,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [BLACK, GREY, NAVY, CREAM],
     stockQuantity: 27,
@@ -208,6 +236,7 @@ const womenProducts = [
     originalPrice: 11500,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [BLUE, BLACK, IVORY],
     stockQuantity: 15,
@@ -228,6 +257,7 @@ const womenProducts = [
     originalPrice: null,
     isNew: true,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [WHITE, SKY_BLUE, MUSTARD],
     stockQuantity: 34,
@@ -248,6 +278,7 @@ const womenProducts = [
     originalPrice: 9600,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: WOMEN_SIZES,
     colours: [GREEN, NAVY, WINE],
     stockQuantity: 21,
@@ -274,6 +305,7 @@ const menProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [WHITE, SKY_BLUE, GREY],
     stockQuantity: 22,
@@ -294,6 +326,7 @@ const menProducts = [
     originalPrice: 4000,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [BLACK, WHITE, NAVY, OLIVE],
     stockQuantity: 38,
@@ -314,6 +347,7 @@ const menProducts = [
     originalPrice: 7200,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: [...MEN_SIZES, ...MEN_WAIST_SIZES],
     colours: [BEIGE, NAVY, OLIVE, BLACK],
     stockQuantity: 4,
@@ -334,6 +368,7 @@ const menProducts = [
     originalPrice: 14900,
     isNew: false,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [BLUE, BLACK, BROWN],
     stockQuantity: 9,
@@ -354,6 +389,7 @@ const menProducts = [
     originalPrice: null,
     isNew: true,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [IVORY, OLIVE, SKY_BLUE, WHITE],
     stockQuantity: 26,
@@ -374,6 +410,7 @@ const menProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: [...MEN_WAIST_SIZES, "38", ...MEN_SIZES],
     colours: [BLACK, GREY, NAVY],
     stockQuantity: 0,
@@ -394,6 +431,7 @@ const menProducts = [
     originalPrice: 12500,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [BLACK, NAVY, OLIVE],
     stockQuantity: 17,
@@ -414,6 +452,7 @@ const menProducts = [
     originalPrice: 5900,
     isNew: true,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: MEN_SIZES,
     colours: [NAVY, WHITE, MAROON, OLIVE],
     stockQuantity: 33,
@@ -440,6 +479,7 @@ const kidsProducts = [
     originalPrice: 6200,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [PINK, DUSTY_ROSE, WHITE],
     stockQuantity: 20,
@@ -460,6 +500,7 @@ const kidsProducts = [
     originalPrice: null,
     isNew: true,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [SKY_BLUE, YELLOW, IVORY],
     stockQuantity: 28,
@@ -480,6 +521,7 @@ const kidsProducts = [
     originalPrice: 3000,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [BLUE, MUSTARD, GREY],
     stockQuantity: 36,
@@ -500,6 +542,7 @@ const kidsProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [BEIGE, NAVY, OLIVE],
     stockQuantity: 5,
@@ -520,6 +563,7 @@ const kidsProducts = [
     originalPrice: 8200,
     isNew: false,
     isFeatured: true,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [NAVY, MAROON, BLACK],
     stockQuantity: 14,
@@ -540,6 +584,7 @@ const kidsProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: KIDS_SIZES,
     colours: [GREY, BLACK, OLIVE, BLUE],
     stockQuantity: 31,
@@ -560,6 +605,7 @@ const kidsProducts = [
     originalPrice: 4900,
     isNew: true,
     isFeatured: false,
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: BABY_SIZES,
     colours: [IVORY, SKY_BLUE, MUSTARD, PINK],
     stockQuantity: 23,
@@ -586,6 +632,9 @@ const accessoryProducts = [
     originalPrice: 5600,
     isNew: false,
     isFeatured: true,
+    // The belt really is offered in waist sizes, so it stays Standard Sizes and
+    // "Adjustable" remains a size the customer can pick like any other.
+    sizeMode: SIZE_MODE_STANDARD,
     sizes: [...MEN_WAIST_SIZES, "Adjustable"],
     colours: [BROWN, BLACK],
     stockQuantity: 26,
@@ -606,6 +655,9 @@ const accessoryProducts = [
     originalPrice: null,
     isNew: false,
     isFeatured: false,
+    // One universal size, so the customer never picks: the list is stored as
+    // exactly ["Free Size"].
+    sizeMode: SIZE_MODE_FREE_SIZE,
     sizes: FREE_SIZE,
     colours: [BEIGE, BLACK, NAVY, OLIVE],
     stockQuantity: 32,
@@ -626,6 +678,9 @@ const accessoryProducts = [
     originalPrice: 3400,
     isNew: false,
     isFeatured: false,
+    // One universal size, so the customer never picks: the list is stored as
+    // exactly ["Free Size"].
+    sizeMode: SIZE_MODE_FREE_SIZE,
     sizes: FREE_SIZE,
     colours: [DUSTY_ROSE, MUSTARD, NAVY, GREEN],
     stockQuantity: 39,
@@ -646,6 +701,9 @@ const accessoryProducts = [
     originalPrice: 9200,
     isNew: false,
     isFeatured: false,
+    // One universal size, so the customer never picks: the list is stored as
+    // exactly ["Free Size"].
+    sizeMode: SIZE_MODE_FREE_SIZE,
     sizes: ADJUSTABLE,
     colours: [BLACK, WINE, CREAM],
     stockQuantity: 3,
@@ -666,6 +724,9 @@ const accessoryProducts = [
     originalPrice: null,
     isNew: true,
     isFeatured: false,
+    // One universal size, so the customer never picks: the list is stored as
+    // exactly ["Free Size"].
+    sizeMode: SIZE_MODE_FREE_SIZE,
     sizes: ADJUSTABLE,
     colours: [BLACK, NAVY, WHITE, OLIVE],
     stockQuantity: 24,

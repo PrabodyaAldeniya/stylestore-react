@@ -25,6 +25,19 @@ import pool from "../db.js";
 import { getPublishedProductForCheckout } from "../repositories/products.js";
 import { DELIVERED_ORDER_STATUS } from "../validation/review.js";
 import { sendOrderEmail } from "../lib/orderMailer.js";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// Used when turning a cart line into an order line, so the stored
+// size always follows the product's size mode instead of whatever
+// the browser sent. See resolveCartSize() further down.
+// ============================================
+import {
+  FREE_SIZE_LABEL,
+  resolveSizeMode,
+  SIZE_MODE_FREE_SIZE,
+  SIZE_MODE_NOT_APPLICABLE,
+} from "../lib/sizeModes.js";
 
 const router = Router();
 
@@ -126,17 +139,42 @@ function resolveCartColour(product, value) {
   return match.name;
 }
 
-function validateCartVariant(product, item) {
-  if (product.sizes.length && !item.size) {
+// ============================================
+// SECTION: Cart size handling
+// --------------------------------------------------------
+// How a cart line's size is decided depends on the product's size
+// mode. The rules are enforced HERE, on the server, so a crafted
+// request can never store a size the product does not sell:
+//
+//   standard        the customer must send a size, and it must be one
+//                   of the product's own sizes
+//   free_size       the customer never chooses: the size is normalised
+//                   to exactly "Free Size", whatever the cart sent
+//   not_applicable  there is no size: any submitted value is discarded
+//                   and the order line stores NULL
+// ============================================
+function resolveCartSize(product, item) {
+  const mode = resolveSizeMode(product.sizeMode, product.sizes);
+
+  if (mode === SIZE_MODE_NOT_APPLICABLE) return null;
+  if (mode === SIZE_MODE_FREE_SIZE) return FREE_SIZE_LABEL;
+
+  // Standard sizes: a real choice is required, and it has to be real.
+  if (!item.size) {
     throw rejectCart("INVALID_VARIANT", `Choose a size for ${product.name}.`);
   }
-  if (product.sizes.length && !product.sizes.includes(item.size)) {
+  if (!product.sizes.includes(item.size)) {
     throw rejectCart("INVALID_VARIANT", `The selected size for ${product.name} is unavailable.`);
   }
+  return item.size;
+}
+
+function validateCartVariant(product, item) {
+  const size = resolveCartSize(product, item);
   if (product.colours.length && !item.color) {
     throw rejectCart("INVALID_VARIANT", `Choose a colour for ${product.name}.`);
   }
-  return resolveCartColour(product, item.color);
+  return { size, color: resolveCartColour(product, item.color) };
 }
 
 // A code row is "expired" (no longer usable) when it is disabled or its
@@ -562,7 +600,9 @@ router.post("/orders", orderLimiter, async (req, res) => {
           "One or more items in your cart are no longer available. Please refresh and try again."
         );
       }
-      const color = validateCartVariant(product, item);
+      // Section: Cart size handling — the stored size comes from the size
+      // mode rules above, never straight from the request body.
+      const variant = validateCartVariant(product, item);
       quantityCount += item.quantity;
       if (quantityCount > 500 || product.stockQuantity < item.quantity) {
         throw rejectCart(
@@ -579,8 +619,8 @@ router.post("/orders", orderLimiter, async (req, res) => {
         productSku: product.sku,
         productName: product.name,
         productImagePath: product.images[0]?.path || null,
-        size: item.size,
-        color,
+        size: variant.size,
+        color: variant.color,
         quantity: item.quantity,
         unitPrice: price,
         lineTotal: price * item.quantity,

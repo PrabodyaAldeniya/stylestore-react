@@ -1348,6 +1348,14 @@ input, select, textarea {
 }
 .qv-size.sel { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
+/* Shown only when a Standard Sizes product still needs a real choice. */
+.qv-size-warning {
+  margin: -4px 0 0;
+  color: #a33146;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
 .qv-qty { display: inline-flex; align-items: center; border: 1px solid var(--sand-2); border-radius: 10px; overflow: hidden; }
 .qv-qty button { width: 36px; height: 40px; background: transparent; border: 0; display: grid; place-items: center; }
 .qv-qty button:hover { background: var(--sand); }

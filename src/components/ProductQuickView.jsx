@@ -3,12 +3,42 @@ import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 
 import { formatLKR } from "../format";
 import { colourLabel, colourSwatch } from "../lib/colours";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// How the size area behaves comes from the product's size mode, not
+// from whether a size list happens to be present:
+//
+//   standard        the customer chooses, and must choose, unless
+//                   the product only sells one size
+//   free_size       one option — "Free Size" — chosen for them
+//   not_applicable  no size row at all, and `null` goes into the bag
+// ============================================
+import {
+  cartSizeFor,
+  FREE_SIZE_LABEL,
+  selectableSizes,
+  sizeIsRequired,
+  sizeModeOf,
+  SIZE_MODE_FREE_SIZE,
+} from "../lib/sizeModes";
 import { ProductImage } from "./ProductCard";
 import ProductReviews from "./reviews/ProductReviews";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
-  const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
-  const sizes = hasSizes ? product.sizes : ["One size"];
+  // The sizes a customer can actually pick. This is [] for Not Applicable,
+  // ["Free Size"] for Free Size, and the product's own list for Standard Sizes.
+  const sizeMode = sizeModeOf(product);
+  const sizes = selectableSizes(product);
+
+  // A Standard Sizes product with more than one size is the only case where the
+  // customer has to make a real choice before Add to Bag works. A one-size
+  // product — such as a cap with a single "Adjustable" size — is filled in for
+  // them, because asking for a choice between one option is just friction.
+  const mustChooseSize = sizeIsRequired(product) && sizes.length > 1;
+
+  // Free Size is chosen automatically, so the button is never blocked.
+  const canAdd = !mustChooseSize || Boolean(size);
   // `colorOptions` is the current [{ name, hex }] shape; `colors` is the
   // legacy hex-only list. `name` stays exactly as the API stored it, because
   // the API matches the chosen variant by that exact string when the order is
@@ -21,7 +51,13 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
     label: colourLabel(colour),
     hex: colourSwatch(colour),
   }));
-  const [size, setSize] = useState(sizes[0]);
+
+  // A Standard Sizes product starts with nothing chosen, so the customer really
+  // does pick. Free Size starts on its only option, and Not Applicable has
+  // nothing to start on.
+  const [size, setSize] = useState(
+    sizeMode === SIZE_MODE_FREE_SIZE ? FREE_SIZE_LABEL : ""
+  );
   const [qty, setQty] = useState(1);
   const [colorIndex, setColorIndex] = useState(0);
   const stock = Number(product.stockQuantity || 0);
@@ -45,9 +81,12 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
 
   const selectedColour = colours[colorIndex] || null;
   const addToBag = () => {
-    if (isOutOfStock) return;
+    if (isOutOfStock || !canAdd) return;
     onAddToBag(product, {
-      size: hasSizes ? size : null,
+      // cartSizeFor applies the mode rules one last time: Not Applicable
+      // always stores null and Free Size always stores "Free Size", whatever
+      // the buttons above look like.
+      size: cartSizeFor(product, size),
       qty,
       color: selectedColour?.name || null,
       colorHex: selectedColour?.hex || null,
@@ -108,22 +147,39 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
             </div>
           )}
 
-          {hasSizes && (
-            <div className="qv-row">
-              <span className="filter-label">Size</span>
-              <div className="qv-sizes">
-                {sizes.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={size === item ? "qv-size sel" : "qv-size"}
-                    onClick={() => setSize(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
+          {/* ---- The size area, driven by the product's size mode ----
+              Free Size shows its single option as already selected; Not
+              Applicable shows nothing at all, because there is no size to
+              choose. */}
+          {sizes.length > 0 && (
+            <>
+              <div className="qv-row">
+                <span className="filter-label">
+                  Size
+                  {sizeMode === SIZE_MODE_FREE_SIZE
+                    ? `: ${FREE_SIZE_LABEL}`
+                    : mustChooseSize && size
+                      ? `: ${size}`
+                      : ""}
+                </span>
+                <div className="qv-sizes">
+                  {sizes.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={size === item ? "qv-size sel" : "qv-size"}
+                      aria-pressed={size === item}
+                      onClick={() => setSize(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+              {mustChooseSize && !size && (
+                <p className="qv-size-warning">Please choose a size to continue.</p>
+              )}
+            </>
           )}
 
           <div className="qv-row">
@@ -151,11 +207,13 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
           <button
             type="button"
             className="primary-button qv-add"
-            disabled={isOutOfStock}
+            disabled={isOutOfStock || !canAdd}
             onClick={addToBag}
           >
             <ShoppingBag size={16} />
-            {isOutOfStock ? "Sold out" : `Add to Bag — ${formatLKR(product.price * qty)}`}
+            {isOutOfStock
+              ? "Sold out"
+              : `Add to Bag — ${formatLKR(product.price * qty)}`}
           </button>
 
           {/* ---- Approved reviews for THIS product, plus the average rating

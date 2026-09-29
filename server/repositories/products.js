@@ -1,5 +1,14 @@
 import pool from "../db.js";
 import { MAX_SEARCH_LENGTH } from "../validation/product.js";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// The repository is the only place that decides what a product's
+// size list actually contains, so the size mode travels with the
+// sizes everywhere: into the insert, into the update, and back out
+// to the admin form and the storefront.
+// ============================================
+import { applySizeMode, resolveSizeMode } from "../lib/sizeModes.js";
 
 const PRODUCT_COLUMNS = `
   p.id,
@@ -20,6 +29,7 @@ const PRODUCT_COLUMNS = `
   p.rating_count,
   p.status,
   p.deleted_at,
+  p.size_mode,
   p.created_at,
   p.updated_at`;
 
@@ -49,6 +59,12 @@ function toProduct(row, relations = {}) {
   // `deleted_at` is the Trash marker: null for every normal product, a
   // timestamp once the product has been moved to the Trash.
   const deletedAt = row.deleted_at || null;
+  // The stored size list, plus the size mode it belongs to. A row saved before
+  // the size_mode column existed has no stored mode, so it is resolved from its
+  // own sizes — every existing product therefore reads correctly without a
+  // single row being rewritten.
+  const storedSizes = (relations.sizes || []).map((size) => size.size);
+  const sizeMode = resolveSizeMode(row.size_mode, storedSizes);
   return {
     id: row.id,
     sku: row.sku,
@@ -81,7 +97,14 @@ function toProduct(row, relations = {}) {
       altText: image.alt_text,
       isPrimary: Boolean(image.is_primary),
     })),
-    sizes: (relations.sizes || []).map((size) => size.size),
+    // Section: Product size modes — `sizeMode` tells every layer whether the
+    // customer picks a size, gets one Free Size, or never sees a selector.
+    sizeMode,
+    // The sizes are re-normalised on the way out too, so a free_size product
+    // can never reach the storefront with a stale standard-size list and a
+    // not_applicable product can never show an empty size selector with a
+    // leftover row behind it.
+    sizes: applySizeMode(sizeMode, storedSizes),
     colours: (relations.colours || []).map((colour) => ({
       name: colour.name,
       hex: colour.hex,
@@ -358,8 +381,8 @@ export async function createProduct(data, connection = pool) {
       `INSERT INTO products
         (sku, name, category, product_type, short_description, description,
          price, original_price, stock_quantity, low_stock_threshold,
-         is_new, is_featured, is_sale, rating, rating_count, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         is_new, is_featured, is_sale, rating, rating_count, status, size_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.sku,
         data.name,
@@ -379,10 +402,18 @@ export async function createProduct(data, connection = pool) {
         data.rating,
         data.ratingCount,
         data.status,
+        // Section: Product size modes — the mode is stored next to the sizes
+        // so the storefront always knows which of the three behaviours applies.
+        resolveSizeMode(data.sizeMode, data.sizes),
       ]
     );
     const productId = result.insertId;
-    await replaceProductOptions(productId, data.sizes, data.colours, connection);
+    await replaceProductOptions(
+      productId,
+      applySizeMode(data.sizeMode, data.sizes),
+      data.colours,
+      connection
+    );
     return getProductById(productId, {
       includeDrafts: true,
       includeTrashed: true,
@@ -416,7 +447,7 @@ export async function updateProduct(id, data, connection = pool) {
               short_description = ?, description = ?, price = ?,
               original_price = ?, stock_quantity = ?, low_stock_threshold = ?,
               is_new = ?, is_featured = ?, is_sale = ?, rating = ?,
-              rating_count = ?, status = ?
+              rating_count = ?, status = ?, size_mode = ?
         WHERE id = ?`,
       [
         data.sku,
@@ -437,10 +468,16 @@ export async function updateProduct(id, data, connection = pool) {
         data.rating,
         data.ratingCount,
         data.status,
+        resolveSizeMode(data.sizeMode, data.sizes),
         id,
       ]
     );
-    await replaceProductOptions(id, data.sizes, data.colours, connection);
+    await replaceProductOptions(
+      id,
+      applySizeMode(data.sizeMode, data.sizes),
+      data.colours,
+      connection
+    );
     return getProductById(id, { includeDrafts: true, includeTrashed: true, connection });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {

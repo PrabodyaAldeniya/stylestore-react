@@ -1283,6 +1283,85 @@
   cursor: not-allowed;
 }
 
+/* ---- Size type selector ----
+   Three stacked radio cards: one per size mode. The native radio stays in the
+   DOM for keyboard and screen-reader support, and is hidden with clip rather
+   than display:none so it keeps receiving focus. Stacking (rather than a
+   three-across row) keeps each mode's explanation readable on a phone. */
+.adm-size-mode-list {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.adm-size-mode {
+  position: relative;
+  display: block;
+  padding: 11px 14px 11px 40px;
+  border: 1px solid var(--sand-2);
+  border-radius: 12px;
+  background: var(--warm-white);
+  cursor: pointer;
+  transition: border-color 0.16s var(--ease-out), background 0.16s var(--ease-out);
+}
+
+.adm-size-mode:hover {
+  border-color: var(--electric);
+}
+
+.adm-size-mode.is-active {
+  border-color: var(--electric);
+  background: var(--lavender);
+}
+
+.adm-size-mode input[type="radio"] {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--electric);
+  cursor: pointer;
+}
+
+.adm-size-mode:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adm-size-mode-body {
+  display: grid;
+  gap: 2px;
+}
+
+.adm-size-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.adm-size-mode-hint {
+  color: #6b6273;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+/* The short reassurance shown under Free Size and Not Applicable. */
+.adm-size-mode-notice {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--sand);
+  color: #514655;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 /* ---- Colour selector ----
    A fluid auto-fill grid so the buttons wrap onto as many rows as the screen
    needs. Every track is minmax(0, …) and every button can shrink, so the

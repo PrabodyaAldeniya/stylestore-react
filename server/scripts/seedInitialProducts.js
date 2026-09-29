@@ -120,6 +120,11 @@ async function insertSeedProduct(product) {
     originalPrice: product.originalPrice ?? null,
     stockQuantity: product.stockQuantity,
     lowStockThreshold: product.lowStockThreshold ?? DEFAULT_LOW_STOCK,
+    // Section: Product size modes — the seed record says how the size list
+    // behaves. The same three rules then run through the very same validation
+    // the admin form uses, so a seeded product cannot end up with a mode that
+    // disagrees with its sizes.
+    sizeMode: product.sizeMode,
     sizes: product.sizes,
     colours: product.colours,
     isNew: Boolean(product.isNew),

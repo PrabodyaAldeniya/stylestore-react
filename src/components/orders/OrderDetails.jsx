@@ -130,9 +130,13 @@ function OrderDetails({ order, onClose, onReviewSubmitted }) {
                         aria-hidden="true"
                       />
                     )}
+                   {/* ---- Variant line ----
+                       A Not Applicable line (a tote bag, say) stores no size,
+                       so no size text is printed at all. "One size" was only
+                       ever a stand-in and was never literally true. */}
                     {[item.size ? `Size ${item.size}` : "", item.color && !isHexColor(item.color) ? item.color : ""]
                       .filter(Boolean)
-                      .join(" · ") || "One size"}
+                      .join(" · ") || null}
                   </span>
                   <span className="order-modal-item-unit">
                     {formatLKR(item.unitPrice)} each × {item.quantity}

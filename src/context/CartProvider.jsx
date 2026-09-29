@@ -8,6 +8,23 @@
    ======================================== */
 import { useEffect, useMemo, useState } from "react";
 import { CartContext } from "./cartContext";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// The bag is the last place a size is chosen, so the size mode is
+// applied here rather than trusted from the caller. A quick "Add"
+// straight from a product card, the Quick View dialog and the order
+// confirmation page all end up going through addToCart, so applying
+// the rules in one place is what keeps them consistent:
+//
+//   free_size       always stored as "Free Size"
+//   not_applicable  always stored as null
+//   standard        the chosen size, or null if none was chosen
+//
+// cartSizeFor() reads the mode straight off the product the caller
+// passed, so nothing new has to be threaded through the callers.
+// ============================================
+import { cartSizeFor } from "../lib/sizeModes";
 
 const STORAGE_KEY = "styleStoreCart";
 const MIN_QUANTITY = 1;
@@ -56,7 +73,10 @@ export function CartProvider({ children }) {
 
   const addToCart = (product, options = {}) => {
     if (product.isOutOfStock || Number(product.stockQuantity) <= 0) return;
-    const size = options.size ?? null;
+    // The size mode decides the stored size, so a Free Size line always says
+    // "Free Size" and a Not Applicable line always stores null — even when the
+    // caller (a quick add from a product card, say) passed nothing at all.
+    const size = cartSizeFor(product, options.size);
     const color = options.color ?? null;
     const colorHex = options.colorHex ?? null;
     const stock = Number(product.stockQuantity) || MAX_QUANTITY;

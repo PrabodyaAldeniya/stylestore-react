@@ -111,12 +111,20 @@ CREATE TABLE IF NOT EXISTS products (
   rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
   status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
   deleted_at        DATETIME     NULL,
+  -- size_mode decides how the size list behaves:
+  --   'standard'        the customer picks a size (at least one is required)
+  --   'free_size'       exactly one universal size, always "Free Size"
+  --   'not_applicable'  no size at all (tote bags, scarves, accessories)
+  -- Existing rows are backfilled from their own size list by the repeatable
+  -- migration at the bottom of this file; see server/db/sizeModeMigrations.js.
+  size_mode         VARCHAR(20)  NOT NULL DEFAULT 'standard',
   created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY sku (sku),
   KEY idx_products_status (status),
   KEY idx_products_deleted_at (deleted_at),
+  KEY idx_products_size_mode (size_mode),
   KEY idx_products_category (category),
   KEY idx_products_price (price)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -360,6 +368,66 @@ SET @idx := (
 );
 SET @sql := IF(@idx = 0,
   'ALTER TABLE products ADD KEY idx_products_deleted_at (deleted_at)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- --------------------------------------------------------
+-- Product size modes migration (safe + repeatable)
+-- --------------------------------------------------------
+-- Step 1 adds `products.size_mode` as NULL-able, so the backfill can still tell
+-- "never decided" from "the admin deliberately picked standard".
+-- Step 2 fills ONLY the NULL rows from each product's own size list:
+--   no sizes                -> not_applicable
+--   single universal size   -> free_size   (Free Size / Adjustable / One Size)
+--   anything else           -> standard
+-- Step 3 makes the column NOT NULL with a safe default.
+-- The stored size TEXT is never rewritten, so a cap that says "Adjustable"
+-- keeps saying "Adjustable". Mirrored by server/db/sizeModeMigrations.js, which
+-- runs automatically at backend start.
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'size_mode'
+);
+SET @sql := IF(@cols = 0,
+  'ALTER TABLE products ADD COLUMN size_mode VARCHAR(20) NULL AFTER deleted_at',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+UPDATE products p
+  LEFT JOIN (
+       SELECT product_id,
+              COUNT(*) AS size_count,
+              MIN(size) AS only_size
+         FROM product_sizes
+        GROUP BY product_id
+      ) s ON s.product_id = p.id
+   SET p.size_mode = CASE
+         WHEN COALESCE(s.size_count, 0) = 0 THEN 'not_applicable'
+         WHEN s.size_count = 1
+              AND LOWER(TRIM(s.only_size)) IN ('free size','adjustable','one size','one size fits all')
+           THEN 'free_size'
+         ELSE 'standard'
+       END
+ WHERE p.size_mode IS NULL;
+
+SET @cols := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND COLUMN_NAME = 'size_mode' AND IS_NULLABLE = 'YES'
+);
+SET @sql := IF(@cols > 0,
+  'ALTER TABLE products MODIFY COLUMN size_mode VARCHAR(20) NOT NULL DEFAULT ''standard''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    AND INDEX_NAME = 'idx_products_size_mode'
+);
+SET @sql := IF(@idx = 0,
+  'ALTER TABLE products ADD KEY idx_products_size_mode (size_mode)',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

@@ -1,4 +1,21 @@
 import { MAIN_CATEGORIES } from "../lib/productTaxonomy.js";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// The three supported modes and the rules that belong to them all
+// live in one module, so no other file repeats these strings:
+//   standard        at least one size is required
+//   free_size       sizes are normalised to exactly ["Free Size"]
+//   not_applicable  sizes may be empty
+// ============================================
+import {
+  applySizeMode,
+  inferSizeMode,
+  isSizeMode,
+  parseSizeMode,
+  SIZE_MODE_STANDARD,
+  SIZE_MODES,
+} from "../lib/sizeModes.js";
 
 const MAX_NAME_LENGTH = 255;
 const MAX_STOCK = 1_000_000;
@@ -107,6 +124,12 @@ function splitList(value) {
   return [];
 }
 
+/**
+ * Clean the submitted size list. Every entry is trimmed, shortened to the
+ * column width, de-duplicated (case-sensitively, matching the UNIQUE key on
+ * product_sizes) and capped, so a hostile or accidental payload can never
+ * write junk into the catalogue.
+ */
 function normalizeSizes(value) {
   return [...new Set(splitList(value).map((item) => cleanText(item, 30)).filter(Boolean))].slice(
     0,
@@ -263,11 +286,50 @@ export function validateProduct(body = {}, { partial = false } = {}) {
     value.ratingCount = ratingCount;
   }
 
-  const sizes = normalizeSizes(body.sizes);
+  // ============================================
+  // SECTION: Size validation
+  // --------------------------------------------------------
+  // Server-side rules, in order:
+  //
+  //   1. The mode itself must be one of the three supported values. An
+  //      unknown or missing-but-explicitly-supplied value is rejected —
+  //      the frontend is never trusted.
+  //   2. standard        at least one size is required.
+  //   3. free_size       the list is normalised to exactly ["Free Size"],
+  //                      whatever was submitted.
+  //   4. not_applicable  the list may be empty, and is forced to empty so no
+  //      stale size row can survive a switch to this mode.
+  //
+  // A product saved before this field existed has no mode at all, so it is
+  // inferred from the sizes it already has. That keeps every existing product
+  // saveable without the admin touching anything.
+  // ============================================
+  const submittedSizes = normalizeSizes(body.sizes);
   const colours = normalizeColours(body.colours);
-  if (body.sizes !== undefined || !partial) {
-    if (!sizes.length) errors.sizes = fieldError("Add at least one size.");
-    else value.sizes = sizes;
+  const sizeModeSupplied = body.sizeMode !== undefined && body.sizeMode !== null;
+
+  let sizeMode;
+  if (sizeModeSupplied) {
+    sizeMode = parseSizeMode(body.sizeMode);
+    if (!sizeMode) {
+      errors.sizeMode = fieldError(
+        `Size type must be one of: ${SIZE_MODES.join(", ")}.`
+      );
+    }
+  } else {
+    sizeMode = inferSizeMode(submittedSizes);
+  }
+
+  if (!errors.sizeMode) {
+    if (sizeMode === SIZE_MODE_STANDARD && !submittedSizes.length) {
+      errors.sizes = fieldError(
+        "Add at least one size, or choose Free Size / Not Applicable as the size type."
+      );
+    }
+    // The mode is always returned so the repository stores it. The sizes are
+    // re-normalised from the mode, never trusted as submitted.
+    value.sizeMode = sizeMode;
+    value.sizes = applySizeMode(sizeMode, submittedSizes);
   }
   if (body.colours !== undefined || !partial) {
     if (!colours.length) errors.colours = fieldError("Add at least one colour.");
@@ -316,6 +378,7 @@ export {
   MAIN_CATEGORIES,
   MAX_SEARCH_LENGTH,
   PRODUCT_STATUSES,
+  isSizeMode,
   normalizeColours,
   normalizeSizes,
 };

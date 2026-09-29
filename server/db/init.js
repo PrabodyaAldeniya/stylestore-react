@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { seedLegacyProducts } from "./seed.js";
 import { migrateReviewSchema } from "./reviewMigrations.js";
+import { migrateSizeModeSchema } from "./sizeModeMigrations.js";
 
 const serverDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(serverDir, "..", "..", ".env") });
@@ -143,12 +144,18 @@ const STATEMENTS = [
      rating_count      INT UNSIGNED NOT NULL DEFAULT 0,
      status            VARCHAR(20)  NOT NULL DEFAULT 'draft',
      deleted_at        DATETIME     NULL,
+     -- size_mode: 'standard' | 'free_size' | 'not_applicable'.
+     -- standard = the customer picks a size, free_size = one universal
+     -- "Free Size", not_applicable = no size at all. Backfilled for existing
+     -- products by sizeModeMigrations.js and required on every new row.
+     size_mode         VARCHAR(20)  NOT NULL DEFAULT 'standard',
      created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
      updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
      UNIQUE KEY sku (sku),
      KEY idx_products_status (status),
      KEY idx_products_deleted_at (deleted_at),
+     KEY idx_products_size_mode (size_mode),
      KEY idx_products_category (category),
      KEY idx_products_price (price)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -267,6 +274,13 @@ const PRODUCT_ADDITIONS = [
     column: "deleted_at",
     definition: "ADD COLUMN deleted_at DATETIME NULL AFTER status",
   },
+  // Size mode. Added NULL-able on purpose so migrateSizeModeSchema can still
+  // tell an unset mode from one the admin chose by hand; it backfills only the
+  // NULL rows and then makes the column NOT NULL.
+  {
+    column: "size_mode",
+    definition: "ADD COLUMN size_mode VARCHAR(20) NULL AFTER deleted_at",
+  },
 ];
 
 // CREATE TABLE IF NOT EXISTS never adds a key to a table that already exists,
@@ -276,6 +290,10 @@ const PRODUCT_INDEXES = [
   {
     index: "idx_products_deleted_at",
     definition: "ADD KEY idx_products_deleted_at (deleted_at)",
+  },
+  {
+    index: "idx_products_size_mode",
+    definition: "ADD KEY idx_products_size_mode (size_mode)",
   },
 ];
 
@@ -344,6 +362,9 @@ export async function initializeDatabase() {
     // backfills the new columns. Additive and repeatable — see the module for
     // why each step is safe to run on every start.
     await migrateReviewSchema(connection, DB_NAME);
+    // Product size modes. Runs AFTER the legacy seed so freshly seeded products
+    // are classified too, and only fills rows that have no mode yet.
+    await migrateSizeModeSchema(connection, DB_NAME);
     await seedLegacyProducts(connection);
   } finally {
     await connection.end();

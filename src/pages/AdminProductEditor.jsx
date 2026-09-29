@@ -71,12 +71,26 @@ import {
   normaliseColourName,
   resolveColourHex,
 } from "../lib/colours";
+// ============================================
+// SECTION: Product size modes
+// --------------------------------------------------------
+// The Add/Edit form keeps the size mode next to the size list it
+// controls, so switching to Free Size or Not Applicable can never
+// leave a stale size behind, and switching back to Standard Sizes
+// brings the owner's own sizes back untouched.
+// ============================================
+import {
+  applySizeMode,
+  resolveSizeMode,
+  SIZE_MODE_STANDARD,
+} from "../lib/sizeModes";
 
 import AdminField from "../components/admin/AdminField";
 import ColourSelector from "../components/admin/ColourSelector";
 import FormSection from "../components/admin/FormSection";
 import ImageManager from "../components/admin/ImageManager";
 import ProductPreviewDialog from "../components/admin/ProductPreviewDialog";
+import SizeTypeSelector from "../components/admin/SizeTypeSelector";
 
 const MAX_PRICE = 99_999_999;
 
@@ -93,6 +107,9 @@ const EMPTY_FORM = {
   originalPrice: "",
   stockQuantity: "10",
   lowStockThreshold: String(DEFAULT_LOW_STOCK),
+  // A new product starts as Standard Sizes: the owner picks a real size list.
+  // Free Size and Not Applicable are one tap away in section 4.
+  sizeMode: SIZE_MODE_STANDARD,
   sizes: [],
   colours: [],
   isNew: false,
@@ -124,6 +141,11 @@ function productToForm(product) {
     originalPrice: product.originalPrice == null ? "" : String(product.originalPrice),
     stockQuantity: String(product.stockQuantity ?? 0),
     lowStockThreshold: String(product.lowStockThreshold ?? DEFAULT_LOW_STOCK),
+    // The stored mode is trusted when it is a real one, so a product the owner
+    // deliberately set to Free Size never gets re-guessed from its size text.
+    // A product saved before this field existed has no stored mode, so it is
+    // inferred from the sizes it already has and stays exactly as it looks now.
+    sizeMode: resolveSizeMode(product.sizeMode, product.sizes),
     sizes: [...(product.sizes || [])],
     colours: (product.colours || []).map((colour) => ({
       name: colour.name || "",
@@ -189,7 +211,13 @@ function validateForm(form) {
     errors.lowStockThreshold = "Enter the warning level as a whole number of 0 or more.";
   }
 
-  if (!form.sizes.length) errors.sizes = "Select or add at least one size.";
+  // ---- Size validation ----------------------------------------------
+  // Only Standard Sizes needs a size list. Free Size is saved for the owner as
+  // exactly "Free Size", and Not Applicable saves no size at all — both are
+  // still checked here so the owner gets told immediately rather than on save.
+  if (form.sizeMode === SIZE_MODE_STANDARD && !form.sizes.length) {
+    errors.sizes = "Select or add at least one size, or choose another size type.";
+  }
   if (!form.colours.length) errors.colours = "Add at least one colour.";
 
   return errors;
@@ -213,7 +241,11 @@ function buildFormData({
   data.set("originalPrice", form.originalPrice);
   data.set("stockQuantity", form.stockQuantity);
   data.set("lowStockThreshold", form.lowStockThreshold);
-  data.set("sizes", JSON.stringify(form.sizes));
+  // The mode is sent alongside the sizes and the list is re-normalised from it,
+  // so Free Size can never be submitted with a leftover size and Not Applicable
+  // can never be submitted with one. The server repeats both checks.
+  data.set("sizeMode", form.sizeMode);
+  data.set("sizes", JSON.stringify(applySizeMode(form.sizeMode, form.sizes)));
   data.set("colours", JSON.stringify(form.colours));
   data.set("isNew", String(form.isNew));
   data.set("isFeatured", String(form.isFeatured));
@@ -380,7 +412,10 @@ export default function AdminProductEditor() {
       discountPercent,
       stockQuantity: Number(form.stockQuantity) || 0,
       lowStockThreshold: Number(form.lowStockThreshold) || 0,
-      sizes: form.sizes,
+      // The preview must show exactly what the storefront will show, so it is
+      // given the same mode and the same normalised size list the API will get.
+      sizeMode: form.sizeMode,
+      sizes: applySizeMode(form.sizeMode, form.sizes),
       colours: form.colours,
       isNew: form.isNew,
       isFeatured: form.isFeatured,
@@ -512,6 +547,9 @@ export default function AdminProductEditor() {
   };
 
   // ---- Sizes ---------------------------------------------------------
+  // The size list is only ever edited while the mode is Standard Sizes, and
+  // `changeSizeMode` (below) re-normalises the list on every switch, so the
+  // state can never hold sizes that disagree with the current mode.
   const toggleSize = (size) => {
     const exists = form.sizes.includes(size);
     update({
@@ -532,6 +570,28 @@ export default function AdminProductEditor() {
     update({ sizes: [...form.sizes, value] });
     setCustomSize("");
   };
+
+  /**
+   * Switch the size type. The confirmation prompt for a destructive switch
+   * lives in SizeTypeSelector, so this only has to apply the change.
+   */
+  const changeSizeMode = (mode) => {
+    update({
+      sizeMode: mode,
+      sizes: applySizeMode(mode, form.sizes),
+    });
+    // A size list that is no longer valid is no longer the first thing to fix,
+    // so clear only the size error and leave every other field alone.
+    setFieldErrors((current) => {
+      if (!current.sizes) return current;
+      const next = { ...current };
+      delete next.sizes;
+      return next;
+    });
+  };
+
+  // The size list UI is only shown — and only required — for Standard Sizes.
+  const isStandard = form.sizeMode === SIZE_MODE_STANDARD;
 
   // ---- Colours -------------------------------------------------------
   // The owner only ever works with colour NAMES. `lib/colours` turns a name
@@ -1132,81 +1192,98 @@ export default function AdminProductEditor() {
         <FormSection
           step="4"
           title="Sizes and Colours"
-          description="Tick the sizes you actually make, add anything unusual, and list the colourways. Customers pick from these in Quick View."
+          description="Choose how this product is sized, then list the sizes you make and the colourways. Customers pick from these in Quick View."
           icon={<Ruler size={17} aria-hidden />}
         >
-          <AdminField
-            id="adm-sizes"
-            label="Sizes"
-            required
+          <SizeTypeSelector
+            id="adm-size-mode"
+            value={form.sizeMode}
+            sizeCount={form.sizes.length}
+            onChange={changeSizeMode}
+            disabled={saving}
             error={fieldErrors.sizes}
             errorKey="sizes"
-            hint={`Tap a size to add or remove it. ${ADULT_SIZES.length} common sizes offered for ${form.category}.`}
-          >
-            <div className="adm-chips" role="group" aria-label="Common sizes">
-              {sizeOptions.map((size) => {
-                const active = form.sizes.includes(size);
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    className={active ? "adm-chip is-active" : "adm-chip"}
-                    aria-pressed={active}
-                    onClick={() => toggleSize(size)}
-                    disabled={saving}
-                  >
-                    {active && <Check size={13} aria-hidden />}
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
-          </AdminField>
+          />
 
-          <div className="adm-inline-add">
-            <label className="adm-inline-label" htmlFor="adm-custom-size">
-              Add a custom size
-            </label>
-            <input
-              id="adm-custom-size"
-              type="text"
-              value={customSize}
-              maxLength={30}
-              placeholder="28, 30, 32 or Free Size"
-              onChange={(event) => setCustomSize(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addCustomSize();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="adm-button adm-button-ghost"
-              onClick={addCustomSize}
-              disabled={saving || !customSize.trim()}
-            >
-              <Plus size={15} aria-hidden /> Add size
-            </button>
-          </div>
+          {/* ---- The size list: Standard Sizes only ----
+              Free Size and Not Applicable have nothing to fill in, so the
+              whole block is replaced by the message SizeTypeSelector shows. */}
+          {isStandard && (
+            <>
+              <AdminField
+                id="adm-sizes"
+                label="Sizes"
+                required
+                error={fieldErrors.sizes}
+                errorKey="sizes"
+                hint={`Tap a size to add or remove it. ${ADULT_SIZES.length} common sizes offered for ${form.category}.`}
+              >
+                <div className="adm-chips" role="group" aria-label="Common sizes">
+                  {sizeOptions.map((size) => {
+                    const active = form.sizes.includes(size);
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        className={active ? "adm-chip is-active" : "adm-chip"}
+                        aria-pressed={active}
+                        onClick={() => toggleSize(size)}
+                        disabled={saving}
+                      >
+                        {active && <Check size={13} aria-hidden />}
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </AdminField>
 
-          {form.sizes.length > 0 && (
-            <ul className="adm-selected">
-              {form.sizes.map((size) => (
-                <li key={size}>
-                  <span>{size}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleSize(size)}
-                    disabled={saving}
-                    aria-label={`Remove size ${size}`}
-                  >
-                    <X size={13} aria-hidden />
-                  </button>
-                </li>
-              ))}
-            </ul>
+              <div className="adm-inline-add">
+                <label className="adm-inline-label" htmlFor="adm-custom-size">
+                  Add a custom size
+                </label>
+                <input
+                  id="adm-custom-size"
+                  type="text"
+                  value={customSize}
+                  maxLength={30}
+                  placeholder="28, 30, 32"
+                  onChange={(event) => setCustomSize(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addCustomSize();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="adm-button adm-button-ghost"
+                  onClick={addCustomSize}
+                  disabled={saving || !customSize.trim()}
+                >
+                  <Plus size={15} aria-hidden /> Add size
+                </button>
+              </div>
+
+              {form.sizes.length > 0 && (
+                <ul className="adm-selected">
+                  {form.sizes.map((size) => (
+                    <li key={size}>
+                      <span>{size}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSize(size)}
+                        disabled={saving}
+                        aria-label={`Remove size ${size}`}
+                      >
+                        <X size={13} aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
 
           <ColourSelector

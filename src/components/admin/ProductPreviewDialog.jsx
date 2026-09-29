@@ -8,6 +8,7 @@ import { formatLKR } from "../../format";
 import { ProductImage } from "../ProductCard";
 import { STOCK_STATE_LABELS, stockState } from "../../lib/adminCatalog";
 import { colourLabel, colourSwatch } from "../../lib/colours";
+import { SIZE_MODE_OPTIONS, sizeModeOf, sizeSummaryLabel } from "../../lib/sizeModes";
 
 function PreviewRow({ label, children }) {
   return (
@@ -78,8 +79,15 @@ function ProductPreviewDialog({ product, onClose }) {
 
           <div className="adm-preview-facts">
             <PreviewRow label="SKU">{product.sku || "—"}</PreviewRow>
+            <PreviewRow label="Size type">
+              {SIZE_MODE_OPTIONS.find(
+                (option) => option.value === sizeModeOf(product)
+              )?.label || "Standard Sizes"}
+            </PreviewRow>
+            {/* "Not applicable" is a real answer, not missing data, so a
+                Not Applicable product says so instead of showing a dash. */}
             <PreviewRow label="Sizes">
-              {product.sizes?.length ? product.sizes.join(", ") : "—"}
+              {sizeSummaryLabel(product) || "Not applicable"}
             </PreviewRow>
             <PreviewRow label="Colours">
               {product.colours?.length ? (
