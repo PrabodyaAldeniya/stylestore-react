@@ -12,6 +12,7 @@ import { CheckCircle2, Truck, X } from "lucide-react";
 
 import { formatLKR } from "../../format";
 import { formatOrderDate, getProductImage, isHexColor } from "../../lib/orderHistoryHelpers";
+import { getPublicSizeDisplay } from "../../lib/publicSizeDisplay";
 import OrderStatusBadge from "./OrderStatusBadge";
 import WriteReviewDialog from "../reviews/WriteReviewDialog";
 
@@ -131,10 +132,14 @@ function OrderDetails({ order, onClose, onReviewSubmitted }) {
                       />
                     )}
                    {/* ---- Variant line ----
-                       A Not Applicable line (a tote bag, say) stores no size,
-                       so no size text is printed at all. "One size" was only
-                       ever a stand-in and was never literally true. */}
-                    {[item.size ? `Size ${item.size}` : "", item.color && !isHexColor(item.color) ? item.color : ""]
+                       The size is shown through the public-display helper, so
+                       a stored "Free Size" reads as the customer's
+                       "Fit: Adjustable" / "Size: One Size" without touching
+                       what the order actually stores. A Not Applicable line
+                       (a tote bag, say) stores no size, so no size text is
+                       printed at all — "One size" was only ever a stand-in and
+                       was never literally true. */}
+                    {[getPublicSizeDisplay(item).text || "", item.color && !isHexColor(item.color) ? item.color : ""]
                       .filter(Boolean)
                       .join(" · ") || null}
                   </span>

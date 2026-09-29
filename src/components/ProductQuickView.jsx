@@ -11,33 +11,38 @@ import { colourLabel, colourSwatch } from "../lib/colours";
 //
 //   standard        the customer chooses, and must choose, unless
 //                   the product only sells one size
-//   free_size       one option — "Free Size" — chosen for them
+//   free_size       one value and no choice, so it is a plain label
+//                   — never a size button
 //   not_applicable  no size row at all, and `null` goes into the bag
+//
+// getPublicSizeDisplay() makes that one decision for every screen, so
+// this dialog, the bag, checkout and order history can never disagree
+// about what a product's size is called.
 // ============================================
 import {
-  cartSizeFor,
-  FREE_SIZE_LABEL,
-  selectableSizes,
-  sizeIsRequired,
-  sizeModeOf,
-  SIZE_MODE_FREE_SIZE,
-} from "../lib/sizeModes";
+  getPublicSizeDisplay,
+  SIZE_DISPLAY_LABEL,
+  SIZE_DISPLAY_SELECTOR,
+} from "../lib/publicSizeDisplay";
+import { cartSizeFor, FREE_SIZE_LABEL, SIZE_MODE_FREE_SIZE } from "../lib/sizeModes";
 import { ProductImage } from "./ProductCard";
 import ProductReviews from "./reviews/ProductReviews";
 
 function ProductQuickView({ product, onClose, onAddToBag }) {
-  // The sizes a customer can actually pick. This is [] for Not Applicable,
-  // ["Free Size"] for Free Size, and the product's own list for Standard Sizes.
-  const sizeMode = sizeModeOf(product);
-  const sizes = selectableSizes(product);
+  // One decision for the whole size area: draw nothing, draw one plain label,
+  // or draw the real size buttons. `options` is the clickable list, which is
+  // empty unless the product really is a multi-size one.
+  const sizeDisplay = getPublicSizeDisplay(product);
+  const sizeMode = sizeDisplay.mode;
+  const sizes = sizeDisplay.options;
 
   // A Standard Sizes product with more than one size is the only case where the
   // customer has to make a real choice before Add to Bag works. A one-size
-  // product — such as a cap with a single "Adjustable" size — is filled in for
-  // them, because asking for a choice between one option is just friction.
-  const mustChooseSize = sizeIsRequired(product) && sizes.length > 1;
+  // product is filled in for them, because asking for a choice between one
+  // option is just friction — and a Free Size product has no buttons at all.
+  const mustChooseSize = sizeDisplay.required && sizes.length > 1;
 
-  // Free Size is chosen automatically, so the button is never blocked.
+  // Free Size needs no selection, so the button is never blocked.
   const canAdd = !mustChooseSize || Boolean(size);
   // `colorOptions` is the current [{ name, hex }] shape; `colors` is the
   // legacy hex-only list. `name` stays exactly as the API stored it, because
@@ -53,8 +58,8 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
   }));
 
   // A Standard Sizes product starts with nothing chosen, so the customer really
-  // does pick. Free Size starts on its only option, and Not Applicable has
-  // nothing to start on.
+  // does pick. Free Size has no buttons to pick from — the label below is the
+  // whole story — and Not Applicable has nothing to start on.
   const [size, setSize] = useState(
     sizeMode === SIZE_MODE_FREE_SIZE ? FREE_SIZE_LABEL : ""
   );
@@ -147,20 +152,24 @@ function ProductQuickView({ product, onClose, onAddToBag }) {
             </div>
           )}
 
-          {/* ---- The size area, driven by the product's size mode ----
-              Free Size shows its single option as already selected; Not
-              Applicable shows nothing at all, because there is no size to
-              choose. */}
-          {sizes.length > 0 && (
+          {/* ---- The size area, driven by one display decision ----
+              Free Size is a single plain label: there is no choice to
+              make, so no button is drawn and "Free Size" is never said
+              twice. Not Applicable shows nothing at all, because there is
+              no size to choose. */}
+          {sizeDisplay.kind === SIZE_DISPLAY_LABEL && (
+            <div className="qv-row">
+              <span className="filter-label">{sizeDisplay.caption}:</span>
+              <span className="qv-size-fixed">{sizeDisplay.label}</span>
+            </div>
+          )}
+
+          {sizeDisplay.kind === SIZE_DISPLAY_SELECTOR && sizes.length > 0 && (
             <>
               <div className="qv-row">
                 <span className="filter-label">
                   Size
-                  {sizeMode === SIZE_MODE_FREE_SIZE
-                    ? `: ${FREE_SIZE_LABEL}`
-                    : mustChooseSize && size
-                      ? `: ${size}`
-                      : ""}
+                  {mustChooseSize && size ? `: ${size}` : ""}
                 </span>
                 <div className="qv-sizes">
                   {sizes.map((item) => (

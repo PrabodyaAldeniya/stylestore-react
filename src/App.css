@@ -1322,7 +1322,9 @@ input, select, textarea {
 .quickview-price .old { font-size: 16px; color: var(--sand-mid); text-decoration: line-through; }
 .quickview-desc { color: #5f574b; font-size: 14.5px; line-height: 1.65; margin: 0; }
 
-.qv-row { display: flex; align-items: center; gap: 12px; }
+/* `flex-wrap` keeps a long value from pushing the row wider than the dialog
+   on a narrow phone, so no size area can ever cause horizontal scrolling. */
+.qv-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .qv-colors { display: flex; gap: 8px; flex-wrap: wrap; }
 .qv-color {
   width: 26px;
@@ -1347,6 +1349,29 @@ input, select, textarea {
   transition: all 0.2s var(--ease-out);
 }
 .qv-size.sel { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* A Free Size product has nothing to choose, so its one value is shown as a
+   soft informational badge rather than a size button: no fill that reads as
+   "press me", no hover state, no pointer. The height and radius match
+   .qv-size so the row still lines up with colour and quantity. */
+.qv-size-fixed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--sand-2);
+  border-radius: 10px;
+  background: var(--sand);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
 
 /* Shown only when a Standard Sizes product still needs a real choice. */
 .qv-size-warning {

@@ -5,6 +5,7 @@ import { ReceiptText } from "lucide-react";
 
 import { formatLKR } from "../../format";
 import { formatOrderDate, getProductImage, isHexColor } from "../../lib/orderHistoryHelpers";
+import { getPublicSizeDisplay } from "../../lib/publicSizeDisplay";
 import OrderStatusBadge from "./OrderStatusBadge";
 
 /* ========================================
@@ -13,12 +14,18 @@ import OrderStatusBadge from "./OrderStatusBadge";
 // Size + colour pill. Hex colours render as a swatch dot; anything else is
 // shown as plain text (e.g. a future named colour).
 //
+// The size comes from getPublicSizeDisplay(), so a stored "Free Size" is
+// shown as the customer's "Fit: Adjustable" / "Size: One Size" while the
+// order itself keeps the value it was written with.
+//
 // A line with no size renders no size text at all. That is the normal state for
 // a Not Applicable product (a tote bag, say), where "One size" used to be shown
 // as a stand-in and was never true.
-function ItemVariant({ size, color }) {
+function ItemVariant({ item }) {
+  const sizeText = getPublicSizeDisplay(item).text;
+  const color = item.color;
   const parts = [];
-  if (size) parts.push(`Size ${size}`);
+  if (sizeText) parts.push(sizeText);
   if (color && !isHexColor(color)) parts.push(color);
 
   return (
@@ -73,7 +80,7 @@ function OrderCard({ order, onViewDetails }) {
 
               <div className="order-card-item-info">
                 <strong>{item.productName}</strong>
-                <ItemVariant size={item.size} color={item.color} />
+                <ItemVariant item={item} />
               </div>
 
               <div className="order-card-item-cols">

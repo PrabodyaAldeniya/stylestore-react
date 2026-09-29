@@ -56,7 +56,12 @@ function cleanSizeList(sizes) {
     .filter(Boolean);
 }
 
-function isUniversalSizeLabel(value) {
+/**
+ * True for a size value that means "there is no size to choose": the
+ * universal labels a product may be sold under. Exported so the customer
+ * facing display helper can recognise them without duplicating the list.
+ */
+export function isUniversalSizeLabel(value) {
   return ["free size", "adjustable", "one size", "one size fits all"].includes(
     String(value ?? "").trim().toLowerCase()
   );

@@ -6,9 +6,26 @@
 import { Box, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { FREE_DELIVERY_THRESHOLD, formatLKR } from "../format";
 import { colourSwatch } from "../lib/colours";
+import { getPublicSizeDisplay } from "../lib/publicSizeDisplay";
 
 const itemKey = (item) =>
   `${item.id}|${item.size || "none"}|${item.color || "none"}`;
+
+/* ============================================
+   SECTION: Public size display
+   --------------------------------------------------------
+   A bag line stores the internal size value, which for a Free Size
+   product is the literal "Free Size". That value is what the order and
+   the database keep, so it is never rewritten — it is only *displayed*
+   through getPublicSizeDisplay(), the same helper the storefront uses.
+   A Not Applicable line stores no size, so this renders nothing at all
+   rather than an empty size or a dash.
+   ============================================ */
+function CartItemSize({ item }) {
+  const display = getPublicSizeDisplay(item);
+  if (!display.text) return null;
+  return <span className="cart-item-size">{display.text}</span>;
+}
 
 function CartDrawer({
   isOpen,
@@ -79,7 +96,7 @@ function CartDrawer({
 
                 {/* ---- Size + colour ---- */}
                 <div className="cart-item-meta">
-                  {item.size && <span className="cart-item-size">Size {item.size}</span>}
+                  <CartItemSize item={item} />
                   {item.color && (
                     <span className="cart-item-colour">
                       {/* The cart stores the colour NAME; the swatch falls back

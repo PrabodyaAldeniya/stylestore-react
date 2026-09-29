@@ -31,6 +31,7 @@ import {
   DISTRICTS,
   previewDiscount,
 } from "../lib/checkout";
+import { getPublicSizeDisplay } from "../lib/publicSizeDisplay";
 import { validateDiscount, placeOrder } from "../lib/checkoutApi";
 import { addOrderNumber } from "../lib/orderHistoryStorage";
 
@@ -79,6 +80,21 @@ const EMPTY_FORM = {
   district: "Colombo",
   postalCode: "",
 };
+
+/* ============================================
+   SECTION: Public size display
+   --------------------------------------------------------
+   The summary shows the same public label the bag and the storefront
+   show, so a Free Size line reads "Fit: Adjustable" / "Size: One
+   Size" rather than the internal "Free Size". The value sent to the
+   API and written to the order line is untouched — only this preview
+   is relabelled. A line with no size renders nothing at all.
+   ============================================ */
+function SummaryItemSize({ item }) {
+  const display = getPublicSizeDisplay(item);
+  if (!display.text) return null;
+  return <span>{display.text}</span>;
+}
 
 const FIELD_ORDER = [
   "email",
@@ -649,7 +665,7 @@ function Checkout() {
                     </div>
                     <div className="summary-item-info">
                       <strong>{item.name}</strong>
-                      {item.size && <span>Size {item.size}</span>}
+                      <SummaryItemSize item={item} />
                       {item.color && (
                         // The order payload carries the colour NAME, so the
                         // swatch is resolved from the palette, not from the
