@@ -1,10 +1,11 @@
+import { MAIN_CATEGORIES } from "../lib/productTaxonomy.js";
+
 const MAX_NAME_LENGTH = 255;
 const MAX_STOCK = 1_000_000;
 const MAX_VARIANTS = 30;
 const MAX_PRICE = 99_999_999;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const PRODUCT_STATUSES = ["draft", "published", "archived"];
-const MAIN_CATEGORIES = ["Women", "Men", "Kids", "Accessories"];
 const DEFAULT_LOW_STOCK = 5;
 
 // ============================================

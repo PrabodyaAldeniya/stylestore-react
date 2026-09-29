@@ -72,8 +72,11 @@ function Navbar({
   };
 
   // Active link + navigation handler. Keeps the header in sync
-  // with where the user is on the page.
-  const NAV_ITEMS = ["New In", "Women", "Men", "Kids", "Collections"];
+  // with where the user is on the page. Every label that is not a
+  // special case is passed straight through as a main category, so
+  // adding a category here is all it takes for it to appear in the
+  // home-page filters and in /products?category=...
+  const NAV_ITEMS = ["New In", "Women", "Men", "Kids", "Accessories", "Collections"];
   const [activeLink, setActiveLink] = useState("New In");
 
   const go = (label) => {

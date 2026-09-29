@@ -126,12 +126,18 @@ async function ensureReviewStatuses(connection, database) {
 /**
  * Let an admin-written review exist without an order number or a
  * customer email. Relaxing NOT NULL never removes data.
+ *
+ * `definition` is the full column definition INCLUDING the column
+ * name (for example "order_number VARCHAR(50) NULL"), matching the
+ * `ensureColumn` / `ensureIndex` convention used everywhere else in
+ * this module. MODIFY COLUMN therefore must not repeat the name, or
+ * the statement becomes invalid SQL.
  */
 async function ensureNullable(connection, database, column, definition) {
   const existing = await columnInfo(connection, database, REVIEWS_TABLE, column);
   if (!existing || existing.IS_NULLABLE === "YES") return;
   await connection.query(
-    `ALTER TABLE ${quoteTable(REVIEWS_TABLE)} MODIFY COLUMN ${column} ${definition}`
+    `ALTER TABLE ${quoteTable(REVIEWS_TABLE)} MODIFY COLUMN ${definition}`
   );
   console.log(`[migrate] ${REVIEWS_TABLE}.${column} now allows NULL`);
 }
@@ -141,13 +147,22 @@ async function ensureNullable(connection, database, column, definition) {
  * column existed, by matching the order + product they already point
  * at. Restricted to `order_item_id IS NULL`, so re-running it is a
  * no-op.
+ *
+ * The comparison is numeric on purpose. `product_reviews.product_id`
+ * is an INT while `order_items.product_id` is a VARCHAR, and the two
+ * tables were created with different collations, so comparing them as
+ * text raises ER_CANT_AGGREGATE_2COLLATIONS ("illegal mix of
+ * collations") and aborts the whole schema init. Casting the order
+ * line's value to UNSIGNED compares two integers instead, which is
+ * the same match and needs no charset. A non-numeric order-line
+ * value casts to 0, which never matches a real product id.
  */
 async function backfillOrderItemId(connection) {
   const [result] = await connection.query(
     `UPDATE ${quoteTable(REVIEWS_TABLE)} r
        JOIN order_items oi
          ON oi.order_id = r.order_id
-        AND oi.product_id = CAST(r.product_id AS CHAR)
+        AND CAST(oi.product_id AS UNSIGNED) = r.product_id
         SET r.order_item_id = oi.id
       WHERE r.order_item_id IS NULL
         AND r.order_id IS NOT NULL`

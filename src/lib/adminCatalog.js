@@ -24,6 +24,15 @@ export const RECOMMENDED_PRODUCT_TYPES = {
     "Office Wear",
     "Co-Ord Sets",
     "Two Piece Sets",
+    // Types used by the initial catalogue seed (npm run seed:products).
+    // Appended, never in front of the list above, so products created
+    // before these were added keep their existing position and value.
+    "Dress",
+    "Blouse",
+    "Top",
+    "Skirt",
+    "Trouser",
+    "Shirt",
   ],
   Men: [
     "Shirts",
@@ -35,6 +44,9 @@ export const RECOMMENDED_PRODUCT_TYPES = {
     "Polo Shirts",
     "Ethnic Wear",
     "Two Piece Sets",
+    "T-Shirt",
+    "Trouser",
+    "Shirt",
   ],
   Kids: [
     "Kids Wear",
@@ -51,6 +63,12 @@ export const RECOMMENDED_PRODUCT_TYPES = {
     "Baby Bodysuits",
     "Baby Sets",
     "Unisex Wear",
+    "Kids Dress",
+    "Kids T-Shirt",
+    "Kids Shorts",
+    "Kids Jacket",
+    "Kids Joggers",
+    "Baby Set",
   ],
   Accessories: [
     "Bags",
@@ -61,6 +79,10 @@ export const RECOMMENDED_PRODUCT_TYPES = {
     "Caps",
     "Sunglasses",
     "Watches",
+    "Belt",
+    "Bag",
+    "Scarf",
+    "Cap",
   ],
 };
 

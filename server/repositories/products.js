@@ -174,7 +174,7 @@ function listQuery({
   // SECTION: Product search
   // --------------------------------------------------------
   // A customer can search by name, SKU, category, product type,
-  // short description or an available colour.
+  // short description, full description or an available colour.
   //
   // Every part of the condition is a *bound* value — the term is only
   // ever sent to MySQL as a `?` parameter, never spliced into the SQL
@@ -190,6 +190,7 @@ function listQuery({
         OR p.category LIKE ?
         OR p.product_type LIKE ?
         OR p.short_description LIKE ?
+        OR p.description LIKE ?
         OR EXISTS (
              SELECT 1 FROM product_colours pc
               WHERE pc.product_id = p.id
@@ -197,7 +198,7 @@ function listQuery({
            ))`
     );
     const term = `%${search}%`;
-    values.push(term, term, term, term, term, term);
+    values.push(term, term, term, term, term, term, term);
   }
 
   if (category) {

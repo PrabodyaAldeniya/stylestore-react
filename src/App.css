@@ -2756,6 +2756,23 @@ body, #root {
 .nav-links .nav-link:hover::after,
 .nav-links .nav-link.active::after { width: 100%; }
 
+/* Six category links (New In, Women, Men, Kids, Accessories,
+   Collections) only fit comfortably on wider screens, so between
+   768px and 1024px the links tighten up instead of pushing the
+   header into a horizontal scrollbar. Below 768px the whole
+   .nav-links row is hidden and the hamburger menu is used. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .nav-links { gap: 14px; }
+  .nav-links .nav-link {
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+  }
+}
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .nav-links { gap: 18px; }
+  .nav-links .nav-link { font-size: 13px; }
+}
+
 /* ---- Mobile menu buttons (same look as the old links) ---- */
 .mobile-menu-link {
   appearance: none;
