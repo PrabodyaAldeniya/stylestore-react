@@ -7,6 +7,63 @@ const PRODUCT_STATUSES = ["draft", "published", "archived"];
 const MAIN_CATEGORIES = ["Women", "Men", "Kids", "Accessories"];
 const DEFAULT_LOW_STOCK = 5;
 
+// ============================================
+// SECTION: Search term safety
+// --------------------------------------------------------
+// The public search box is the only place a visitor can put free text
+// into a query. It is cleaned here, on the server, before it is ever
+// turned into a LIKE pattern.
+// ============================================
+// Longest search term the catalogue will accept. Anything longer is
+// truncated rather than rejected so a pasted paragraph still works.
+const MAX_SEARCH_LENGTH = 80;
+
+/**
+ * Clean a search term taken from `?search=`.
+ *
+ *  * trims leading / trailing spaces and collapses runs of spaces
+ *  * removes control characters
+ *  * removes the LIKE wildcards `%` and `_` and the escape character `\`
+ *    so a customer cannot turn "dress" into "match everything"
+ *  * caps the length
+ *
+ * The result is only ever used as a bound parameter, never as SQL text.
+ * An empty (or fully stripped) value means "no search".
+ */
+export function parseSearchTerm(value) {
+  if (value === undefined || value === null) return "";
+  const raw = Array.isArray(value) ? String(value[0] ?? "") : String(value);
+
+  // Control characters (including DEL) are turned into a space rather than
+  // matched by a regex range: they are never what a customer meant to type,
+  // and comparing code points keeps the rule readable without embedding
+  // control characters in the source. Everything above ASCII — accented
+  // letters, Sinhala, emoji — is left untouched.
+  const printable = Array.from(raw, (character) => {
+    const code = character.codePointAt(0);
+    return code < 32 || code === 127 ? " " : character;
+  }).join("");
+
+  const cleaned = printable
+    .replace(/[%_\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_SEARCH_LENGTH)
+    .trim();
+  return cleaned;
+}
+
+/**
+ * Clean an optional price bound (`?minPrice` / `?maxPrice`).
+ * Returns null when the value is missing or unusable, so a bad value
+ * simply means "no bound" instead of breaking the whole request.
+ */
+export function parsePriceFilter(value) {
+  const number = toNumber(value);
+  if (number === null || number < 0 || number > MAX_PRICE) return null;
+  return number;
+}
+
 function fieldError(message) {
   return { message };
 }
@@ -254,4 +311,10 @@ export function parseProductId(value) {
   return id;
 }
 
-export { MAIN_CATEGORIES, PRODUCT_STATUSES, normalizeColours, normalizeSizes };
+export {
+  MAIN_CATEGORIES,
+  MAX_SEARCH_LENGTH,
+  PRODUCT_STATUSES,
+  normalizeColours,
+  normalizeSizes,
+};

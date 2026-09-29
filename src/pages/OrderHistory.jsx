@@ -1,7 +1,7 @@
 /* ========================================
    1. IMPORTS
 ======================================== */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Package } from "lucide-react";
 
@@ -53,6 +53,17 @@ function OrderHistory() {
       if (cancelled) return;
       if (ok && Array.isArray(data?.orders)) {
         setOrders(data.orders);
+
+        // The open details dialog keeps its own copy of the order, so it has
+        // to be refreshed as well — otherwise a line that has just been
+        // reviewed still offers a "Write a review" button until the customer
+        // closes and reopens the dialog. Matched on the order number, which
+        // never changes for a given order.
+        setDisplayedOrder((current) => {
+          if (!current) return current;
+          return data.orders.find((order) => order.orderNumber === current.orderNumber) || current;
+        });
+
         setStatus("success");
       } else {
         setStatus("error");
@@ -68,6 +79,14 @@ function OrderHistory() {
     setStatus("loading");
     setReloadKey((key) => key + 1);
   };
+
+  /* ===== 4b. REFRESH AFTER A REVIEW ===== */
+  // A published review flips that order line to "Reviewed", so the list and
+  // the open details dialog are refetched from the server rather than patched
+  // locally — the server stays the only source of truth for what is reviewable.
+  const handleReviewSubmitted = useCallback(() => {
+    setReloadKey((key) => key + 1);
+  }, []);
 
   /* ===== 5. UI RENDERING ===== */
 
@@ -147,7 +166,11 @@ function OrderHistory() {
 
       {/* ---- Details modal for the browser-order list ---- */}
       {displayedOrder && (
-        <OrderDetails order={displayedOrder} onClose={() => setDisplayedOrder(null)} />
+        <OrderDetails
+          order={displayedOrder}
+          onClose={() => setDisplayedOrder(null)}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
       )}
     </section>
   );

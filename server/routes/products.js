@@ -1,11 +1,16 @@
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import {
   getProductById,
   listProductFacets,
   listProducts,
 } from "../repositories/products.js";
 import { getApprovedReviewSummary, listApprovedReviews } from "../repositories/reviews.js";
-import { parseProductId } from "../validation/product.js";
+import {
+  parsePriceFilter,
+  parseProductId,
+  parseSearchTerm,
+} from "../validation/product.js";
 
 const router = express.Router();
 
@@ -18,15 +23,44 @@ function sendError(res, error) {
   });
 }
 
-router.get("/", async (req, res, next) => {
+// ============================================
+// SECTION: Product search request
+// --------------------------------------------------------
+// GET /api/products?search=dress&category=Women&sort=price-asc
+//
+// The search term is only ever cleaned and length-capped here; the
+// actual matching happens in a parameterised MySQL query in
+// repositories/products.js. Nothing from the query string is ever
+// concatenated into SQL text.
+// ============================================
+
+// A light rate limit keeps one impatient typist (or a script) from
+// hammering the catalogue. It is generous enough that normal browsing,
+// filtering and re-typing a search term never reaches it.
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many search requests. Please try again in a moment.",
+  },
+});
+
+router.get("/", searchLimiter, async (req, res, next) => {
   try {
     const result = await listProducts({
       page: req.query.page,
       pageSize: req.query.pageSize,
-      search: req.query.search,
+      // Trimmed, de-wildcarded and length-capped on the server.
+      search: parseSearchTerm(req.query.search),
       category: req.query.category,
       productType: req.query.productType,
       sort: req.query.sort,
+      minPrice: parsePriceFilter(req.query.minPrice),
+      maxPrice: parsePriceFilter(req.query.maxPrice),
     });
     res.json({ success: true, ...result });
   } catch (error) {

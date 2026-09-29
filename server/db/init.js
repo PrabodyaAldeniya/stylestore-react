@@ -16,6 +16,7 @@ import mysql from "mysql2/promise";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { seedLegacyProducts } from "./seed.js";
+import { migrateReviewSchema } from "./reviewMigrations.js";
 
 const serverDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(serverDir, "..", "..", ".env") });
@@ -197,12 +198,22 @@ const STATEMENTS = [
   //   * `product_name` is a snapshot (the same approach order_items uses), so
   //     an approved review stays readable even after the product row is gone.
   //   * `status` is the publication gate. Only 'approved' rows are ever read
-  //     by the public API. A review is written as 'approved' only after the
-  //     server has verified the order number, checkout email, purchased
-  //     product, duplicate rule, rating and review text; the admin can later
-  //     hide, reject, restore or delete it.
-  //   * UNIQUE(order_id, product_id) makes a duplicate review for the same
-  //     order line impossible, even if two identical requests race.
+  //     by the public API. A customer review is written as 'approved' only
+  //     after the server has verified the order number, checkout email, that
+  //     the order was DELIVERED, the exact unreviewed order line, the rating
+  //     and the review text. The admin can later hide, reject, archive,
+  //     restore or delete it.
+  //   * `order_item_id` is the order line a customer review belongs to.
+  //     UNIQUE(order_item_id) is the real "one review per purchased item"
+  //     guarantee — two clicks at the same moment cannot both succeed. It
+  //     works because MySQL allows many rows with a NULL order_item_id, which
+  //     is exactly what an admin editorial review has.
+  //   * `source` separates a real customer purchase ('customer') from an
+  //     editorial testimonial the store owner wrote ('admin'). Only
+  //     source = 'customer' reviews count towards a product's star rating, so
+  //     a testimonial can never inflate it.
+  //   * `order_number` and `customer_email` are NULL-able because an admin
+  //     review belongs to no order and has no customer.
   //   * `customer_email` exists for the admin only and is never included in a
   //     public response.
   `CREATE TABLE IF NOT EXISTS ${q("product_reviews")} (
@@ -210,19 +221,22 @@ const STATEMENTS = [
      product_id     INT UNSIGNED NULL,
      product_name   VARCHAR(255) NOT NULL,
      order_id       INT UNSIGNED NULL,
-     order_number   VARCHAR(50)  NOT NULL,
+     order_item_id  INT UNSIGNED NULL,
+     order_number   VARCHAR(50)  NULL,
      customer_name  VARCHAR(100) NOT NULL,
-     customer_email VARCHAR(255) NOT NULL,
+     customer_email VARCHAR(255) NULL,
      rating         TINYINT UNSIGNED NOT NULL,
      review_title   VARCHAR(160) NULL,
      review_text    TEXT         NOT NULL,
      verified_buyer TINYINT(1)   NOT NULL DEFAULT 0,
-     status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+     source         VARCHAR(20)  NOT NULL DEFAULT 'customer',
+     status         ENUM('draft','pending','approved','rejected','hidden','archived') NOT NULL DEFAULT 'draft',
      created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
      updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
-     UNIQUE KEY uq_reviews_order_product (order_id, product_id),
+     UNIQUE KEY uq_reviews_order_item (order_item_id),
      KEY idx_reviews_status (status, created_at),
+     KEY idx_reviews_source (source),
      KEY idx_reviews_product (product_id, status),
      KEY idx_reviews_order_number (order_number)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -325,6 +339,11 @@ export async function initializeDatabase() {
     for (const addition of DISCOUNT_ADDITIONS) {
       await ensureColumn(connection, "discount_codes", addition.column, addition.definition);
     }
+    // Purchased-product review migration: adds order_item_id + source, widens
+    // the status enum, adds the unique "one review per order line" index and
+    // backfills the new columns. Additive and repeatable — see the module for
+    // why each step is safe to run on every start.
+    await migrateReviewSchema(connection, DB_NAME);
     await seedLegacyProducts(connection);
   } finally {
     await connection.end();

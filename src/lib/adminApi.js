@@ -134,9 +134,13 @@ export function permanentlyDeleteProduct(id, confirmation = "DELETE") {
 // ========================================================
 
 /**
- * List customer reviews for the admin Reviews page.
- * `status` accepts "pending" | "approved" | "rejected" (or nothing for all),
- * `search` matches customer, email, order number, product or review text.
+ * List reviews for the admin Reviews page — both real customer reviews and
+ * the owner's own editorial testimonials.
+ *
+ * `status` accepts "draft" | "pending" | "approved" | "rejected" | "hidden" |
+ * "archived" (or nothing for all). `source` accepts "customer" | "admin" (or
+ * nothing for both). `search` matches customer, email, order number, product
+ * or review text.
  */
 export function listAdminReviews(params = {}) {
   const query = new URLSearchParams();
@@ -146,15 +150,31 @@ export function listAdminReviews(params = {}) {
   return request(`/api/admin/reviews${query.toString() ? `?${query}` : ""}`);
 }
 
-/** Cheap pending/approved/rejected totals for the admin header badge. */
+/** Cheap per-status and per-source totals for the admin header badge + tabs. */
 export function getAdminReviewCounts() {
   return request("/api/admin/reviews/counts");
 }
 
 /**
- * Publish (restore) or hide (reject) a review. Verified reviews are published
- * automatically, so this is used for moderation after the fact. The server
- * re-syncs the product rating to match the approved reviews afterwards.
+ * Write an editorial testimonial.
+ *
+ * The server decides everything that matters: the review is always stored as
+ * source = 'admin', is never marked as a verified purchase, and is attached to
+ * no order, so it can never be mistaken for a customer review or consume a
+ * customer's one-review-per-item allowance. `status` defaults to "draft".
+ */
+export function createAdminReview(review) {
+  return request("/api/admin/reviews", {
+    method: "POST",
+    body: JSON.stringify(review),
+  });
+}
+
+/**
+ * Move a review between moderation states: publish, hide, reject, archive,
+ * restore or send back to draft. The server re-syncs the product rating from
+ * the approved CUSTOMER reviews afterwards, so a testimonial never changes a
+ * product's star rating.
  */
 export function updateAdminReviewStatus(id, status) {
   return request(`/api/admin/reviews/${encodeURIComponent(id)}/status`, {
@@ -166,4 +186,31 @@ export function updateAdminReviewStatus(id, status) {
 /** Delete an inappropriate review for good. */
 export function deleteAdminReview(id) {
   return request(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+// ========================================================
+// ORDERS
+// --------------------------------------------------------
+// The owner marks a real order as delivered, which is what opens
+// the customer's ability to review the products they bought.
+// ========================================================
+
+/** Recent orders with their fulfilment status and how many lines are reviewed. */
+export function listAdminOrders(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  return request(`/api/admin/orders${query.toString() ? `?${query}` : ""}`);
+}
+
+/**
+ * Move an order to a new fulfilment state. "delivered" is the important one:
+ * it is what lets the customer review what they bought.
+ */
+export function updateAdminOrderStatus(orderNumber, status) {
+  return request(`/api/admin/orders/${encodeURIComponent(orderNumber)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }

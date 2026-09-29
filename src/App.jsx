@@ -1,4 +1,4 @@
-﻿/* ========================================================
+/* ========================================================
    STYLESTORE — main App
    --------------------------------------------------------
    Owns all shared state (search, category, sort, cart,
@@ -6,13 +6,12 @@
 ======================================================== */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, X } from "lucide-react";
 
 import "./App.css";
 
 import { fetchProducts } from "./lib/productApi";
+import { useWishlist } from "./lib/useWishlist";
 import { orderProductTypes } from "./lib/adminCatalog";
-import { formatLKR } from "./format";
 import { useCart } from "./context/useCart";
 // ---- Layout / sections ----
 import AnnouncementBar from "./components/AnnouncementBar";
@@ -30,6 +29,7 @@ import Newsletter from "./components/Newsletter";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import ToastList from "./components/ToastList";
+import WishlistDrawer from "./components/WishlistDrawer";
 
 const ALL_CATEGORIES = ["All", "Women", "Men", "Kids", "Accessories"];
 
@@ -47,8 +47,14 @@ function App() {
     removeFromCart,
   } = useCart();
 
+  // ---- Wishlist (shared with the /products catalogue page) ----
+  const {
+    wishlist,
+    toggle: toggleWishlist,
+    remove: removeFromWishlist,
+  } = useWishlist();
+
   // ---- Search / filter / sort ----
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   // Product types are the sub-categories of the current main category.
   const [selectedType, setSelectedType] = useState("all");
@@ -58,16 +64,6 @@ function App() {
   const [catalogStatus, setCatalogStatus] = useState("loading");
   const [catalogError, setCatalogError] = useState("");
   const [catalogReload, setCatalogReload] = useState(0);
-
-  // ---- Wishlist (localStorage-backed) ----
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem("styleStoreWishlist");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
 
   // ---- UI panels ----
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -79,11 +75,6 @@ function App() {
   const [toasts, setToasts] = useState([]);
 
   // ================= SIDE EFFECTS =================
-
-  // Persist wishlist (cart persistence lives in CartContext)
-  useEffect(() => {
-    localStorage.setItem("styleStoreWishlist", JSON.stringify(wishlist));
-  }, [wishlist]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,25 +209,33 @@ function App() {
     }
   };
 
-  // ================= WISHLIST LOGIC =================
-
-  const toggleWishlist = (id) => {
-    setWishlist((current) => {
-      if (current.includes(id)) {
-        pushToast("Removed from wishlist", "info");
-        return current.filter((w) => w !== id);
-      }
-      pushToast("Added to wishlist");
-      return [...current, id];
-    });
+  // ========================================
+  // SECTION: Navbar search
+  // --------------------------------------------------------
+  // Searching from the home page opens the catalogue page with the
+  // term in the URL (/products?search=dress). It is a normal
+  // client-side navigation, so the browser never reloads the page.
+  // ========================================
+  const startSearch = (term) => {
+    navigate(`/products?search=${encodeURIComponent(term)}`);
   };
 
-  const removeFromWishlist = (id) =>
-    setWishlist((current) => current.filter((w) => w !== id));
+  const clearSearch = () => navigate("/products");
 
-  const wishlistItems = wishlist
-    .map((id) => catalog.find((product) => String(product.id) === String(id)))
-    .filter(Boolean);
+  // ================= WISHLIST LOGIC =================
+
+  const handleToggleWishlist = (id) => {
+    const added = toggleWishlist(id);
+    pushToast(added ? "Added to wishlist" : "Removed from wishlist", added ? "success" : "info");
+  };
+
+  const wishlistItems = useMemo(
+    () =>
+      wishlist
+        .map((id) => catalog.find((product) => String(product.id) === String(id)))
+        .filter(Boolean),
+    [wishlist, catalog]
+  );
 
   // ================= FILTER + SORT =================
 
@@ -254,20 +253,13 @@ function App() {
   }, [catalog, selectedCategory]);
 
   const filteredProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-
     let result = catalog.filter((product) => {
       const matchesCategory =
         selectedCategory === "All" || product.category === selectedCategory;
       const matchesType =
         selectedType === "all" || product.productType === selectedType;
-      const matchesSearch =
-        !query ||
-        [product.name, product.sku, product.category, product.productType]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query));
       const matchesSale = !saleOnly || product.isSale;
-      return matchesCategory && matchesType && matchesSearch && matchesSale;
+      return matchesCategory && matchesType && matchesSale;
     });
 
     switch (sortOption) {
@@ -289,7 +281,7 @@ function App() {
     }
 
     return result;
-  }, [catalog, saleOnly, searchTerm, selectedCategory, selectedType, sortOption]);
+  }, [catalog, saleOnly, selectedCategory, selectedType, sortOption]);
 
   // ================= RENDER =================
 
@@ -300,8 +292,9 @@ function App() {
 
       {/* ---- Navbar ---- */}
       <Navbar
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+        searchTerm=""
+        onSearchSubmit={startSearch}
+        onSearchClear={clearSearch}
         wishlistCount={wishlist.length}
         cartCount={cartCount}
         onOpenCart={() => setIsCartOpen(true)}
@@ -360,7 +353,7 @@ function App() {
                }}
               wishlist={wishlist}
               onAddToCart={handleAddToCart}
-              onAddToWishlist={toggleWishlist}
+              onAddToWishlist={handleToggleWishlist}
               onRemoveFromWishlist={removeFromWishlist}
               onQuickView={setQuickViewProduct}
             />
@@ -402,52 +395,14 @@ function App() {
         }}
       />
 
-      {/* ---- Wishlist drawer ---- */}
-      {isWishlistOpen && (
-        <div className="drawer-backdrop" onClick={() => setIsWishlistOpen(false)} />
-      )}
-      <aside className={isWishlistOpen ? "wishlist-drawer open" : "wishlist-drawer"} aria-label="Wishlist">
-        <div className="cart-drawer-header">
-          <h3>Wishlist ({wishlist.length})</h3>
-          <button className="icon-button" onClick={() => setIsWishlistOpen(false)} aria-label="Close wishlist">
-            <span style={{ fontSize: 22, lineHeight: 1 }}>×</span>
-          </button>
-        </div>
-
-        {wishlistItems.length === 0 ? (
-          <div className="wishlist-empty">
-            <p>Your wishlist is empty — tap the heart on any product to save it here.</p>
-          </div>
-        ) : (
-          <ul className="wishlist-items">
-            {wishlistItems.map((item) => (
-              <li key={item.id} className="wishlist-item">
-                <img src={item.image} alt={item.name} />
-                <div>
-                  <strong>{item.name}</strong>
-                  <div className="sub">{formatLKR(item.price)}</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <button
-                    className="icon-button"
-                    onClick={() => handleAddToCart(item)}
-                    aria-label={`Add ${item.name} to bag`}
-                  >
-                    <ShoppingBag size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    onClick={() => removeFromWishlist(item.id)}
-                    aria-label={`Remove ${item.name}`}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+      {/* ---- Wishlist drawer (shared with the search page) ---- */}
+      <WishlistDrawer
+        isOpen={isWishlistOpen}
+        onClose={() => setIsWishlistOpen(false)}
+        wishlistItems={wishlistItems}
+        onAddToCart={handleAddToCart}
+        onRemoveFromWishlist={removeFromWishlist}
+      />
 
       {/* ---- Quick view ---- */}
       {quickViewProduct && (

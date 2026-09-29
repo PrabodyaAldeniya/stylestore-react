@@ -1,10 +1,15 @@
 /* ========================================================
    WRITE A REVIEW — dialog + trigger button
    --------------------------------------------------------
-   The single entry point used by the reviews section and the
-   product Quick View. It owns the modal, the Escape key, the
-   body scroll lock and the focus move, so both places get the
-   same accessible behaviour without repeating any of it.
+   The single entry point used by the reviews section, the
+   product Quick View and My Orders. It owns the modal, the Escape
+   key, the body scroll lock and the focus move, so every place
+   gets the same accessible behaviour without repeating any of it.
+
+   ITEM MODE: pass `item` (from an order line) to open the form
+   already locked to that one product, plus `initialOrderNumber`
+   from the same order. The customer only has to confirm the email;
+   the server still decides whether the review is allowed.
    ======================================================== */
 import { useCallback, useEffect, useState } from "react";
 import { MessageSquarePlus, X } from "lucide-react";
@@ -16,6 +21,10 @@ export default function WriteReviewDialog({
   productId = null,
   productName = null,
   initialOrderNumber = "",
+  // Optional `{ productId, productName, variant, imagePath }` for a
+  // single, already-known purchase.
+  item = null,
+  onReviewSubmitted,
   variant = "primary",
   className = "",
 }) {
@@ -38,6 +47,11 @@ export default function WriteReviewDialog({
     };
   }, [open, close]);
 
+  // Item mode derives the product id/name from the order line so the two can
+  // never disagree with each other.
+  const lockedProductId = item ? item.productId : productId;
+  const lockedProductName = item ? item.productName : productName;
+
   return (
     <>
       <button
@@ -45,7 +59,7 @@ export default function WriteReviewDialog({
         className={`rv-write-trigger ${variant} ${className}`.trim()}
         onClick={() => setOpen(true)}
         // data-product lets the caller know which product the review is about.
-        data-product-id={productId ?? undefined}
+        data-product-id={lockedProductId ?? undefined}
       >
         <MessageSquarePlus size={16} aria-hidden />
         {label}
@@ -68,11 +82,13 @@ export default function WriteReviewDialog({
             >
               <X size={20} />
             </button>
-            {productName && <span className="rv-modal-product">{productName}</span>}
+            {lockedProductName && <span className="rv-modal-product">{lockedProductName}</span>}
             <WriteReviewForm
               initialOrderNumber={initialOrderNumber}
+              item={item}
               onDone={close}
               onCancel={close}
+              onReviewSubmitted={onReviewSubmitted}
             />
           </div>
         </div>

@@ -1,9 +1,9 @@
 // ========================================
 // REVIEW VALIDATION
 // --------------------------------------------------------
-// All input checking for the customer review system lives
-// here, so the public POST /api/reviews route and the admin
-// routes can never disagree about what a valid review is.
+// All input checking for the review system lives here, so the public
+// POST /api/reviews route and the admin routes can never disagree
+// about what a valid review is.
 //
 // Rules enforced here:
 //   * the order number must look like a real StyleStore number
@@ -15,10 +15,62 @@
 //   * both are hard length-capped
 //   * obvious spam (honeypot, link farms, keyboard mashing) is
 //     rejected before anything touches the database
+//
+// Two kinds of review exist and they are never confused:
+//
+//   CUSTOMER  — written by a shopper, tied to one order line of a
+//               delivered order, auto-published, and always
+//               "Verified Buyer". The order number and email are
+//               required and are the proof of purchase.
+//   ADMIN     — an editorial testimonial written by the store
+//               owner. It has no order, no email, is never
+//               "Verified Buyer", and the owner picks its status
+//               (draft / approved / hidden) on the admin page.
 // ========================================
 
-// Status values the moderation workflow can be in.
-export const REVIEW_STATUSES = ["pending", "approved", "rejected"];
+// The order status a customer order must reach before any of its
+// products can be reviewed. A single source of truth, imported by the
+// repository as well.
+export const DELIVERED_ORDER_STATUS = "delivered";
+
+// Every status a review can be in. Only 'approved' is ever public.
+//
+//   draft    — admin wrote it, not published yet
+//   pending  — customer review waiting on moderation
+//   approved — visible on the site
+//   rejected — refused, kept for the record
+//   hidden   — was published, pulled from the site without being
+//              treated as spam
+//   archived — deliberately retired, can be brought back
+export const REVIEW_STATUSES = [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "hidden",
+  "archived",
+];
+
+// The statuses the admin moderation dropdown offers.
+export const MODERATION_STATUSES = [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "hidden",
+  "archived",
+];
+
+// Where a review came from. This is what decides whether a review
+// counts towards a product's star rating, and what badge it shows.
+export const REVIEW_SOURCES = ["customer", "admin"];
+
+// The public badge text. Kept here so the API and any future email
+// or receipt read from exactly the same place.
+export const REVIEW_SOURCE_LABELS = {
+  customer: "Verified Buyer",
+  admin: "StyleStore Testimonial",
+};
 
 export const MAX_NAME_LENGTH = 80;
 export const MAX_TITLE_LENGTH = 160;
@@ -80,14 +132,22 @@ export function parseProductId(value) {
 
 export function parseReviewStatus(value) {
   const status = text(value).toLowerCase();
-  if (!REVIEW_STATUSES.includes(status)) {
+  if (!MODERATION_STATUSES.includes(status)) {
     throw reviewError(
-      "Status must be pending, approved or rejected.",
+      `Status must be one of: ${MODERATION_STATUSES.join(", ")}.`,
       "VALIDATION_ERROR",
       422
     );
   }
   return status;
+}
+
+export function parseReviewSource(value) {
+  const source = text(value).toLowerCase();
+  if (!REVIEW_SOURCES.includes(source)) {
+    throw reviewError("Source must be customer or admin.", "VALIDATION_ERROR", 422);
+  }
+  return source;
 }
 
 /**
@@ -177,6 +237,75 @@ export function validateReviewSubmission(body = {}) {
     errors.reviewText = `Please keep your review under ${MAX_TEXT_LENGTH} characters.`;
   } else {
     value.reviewText = reviewText;
+  }
+
+  if (Object.keys(errors).length) {
+    throw reviewError("Please check the review form.", "VALIDATION_ERROR", 422, errors);
+  }
+  return value;
+}
+
+/**
+ * Validate the admin "write a review" form.
+ *
+ * An admin review is always source = 'admin', so it can never be
+ * marked as a verified purchase and can never be attached to an
+ * order. The owner chooses which product it belongs to and which
+ * moderation state to start in (draft is the safe default so a
+ * half-written testimonial is never published by accident).
+ */
+export function validateAdminReviewSubmission(body = {}) {
+  const errors = {};
+  const value = {};
+
+  const productId = Number(text(body.productId));
+  if (!Number.isInteger(productId) || productId < 1) {
+    errors.productId = "Choose the product this testimonial is about.";
+  } else {
+    value.productId = productId;
+  }
+
+  // The display name on an admin review is the author, e.g. "StyleStore Team".
+  const customerName = normalise(body.customerName, MAX_NAME_LENGTH);
+  if (!customerName) {
+    errors.customerName = "Enter the name to show, e.g. StyleStore Team.";
+  } else if (!NAME_PATTERN.test(customerName)) {
+    errors.customerName =
+      "Use letters, spaces, ' and - only (no links or email addresses).";
+  } else {
+    value.customerName = customerName;
+  }
+
+  const rawRating = text(body.rating);
+  const rating = /^\d+$/.test(rawRating) ? Number(rawRating) : NaN;
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    errors.rating = "Choose a rating from 1 to 5 stars.";
+  } else {
+    value.rating = rating;
+  }
+
+  const reviewTitle = normalise(body.reviewTitle, MAX_TITLE_LENGTH);
+  if (reviewTitle) value.reviewTitle = reviewTitle;
+
+  const reviewText = normalise(body.reviewText, MAX_TEXT_LENGTH);
+  if (reviewText.length < MIN_TEXT_LENGTH) {
+    errors.reviewText = `Please write at least ${MIN_TEXT_LENGTH} characters.`;
+  } else if (text(body.reviewText).length > MAX_TEXT_LENGTH) {
+    errors.reviewText = `Please keep this under ${MAX_TEXT_LENGTH} characters.`;
+  } else {
+    value.reviewText = reviewText;
+  }
+
+  // Default to draft: an admin review is published deliberately.
+  const requestedStatus = text(body.status).toLowerCase();
+  if (requestedStatus) {
+    if (!MODERATION_STATUSES.includes(requestedStatus)) {
+      errors.status = "Choose a valid status.";
+    } else {
+      value.status = requestedStatus;
+    }
+  } else {
+    value.status = "draft";
   }
 
   if (Object.keys(errors).length) {

@@ -3,22 +3,24 @@
 // --------------------------------------------------------
 // Mounted at /api, so the customer-facing endpoints are:
 //
-//   POST /api/reviews/verify  — check an order number + email
-//                               and list what can be reviewed
-//   POST /api/reviews        — submit a review (auto-published
-//                               once every check below passes)
+//   POST /api/reviews/verify  — check an order number + email and
+//                               list what can be reviewed
+//   POST /api/reviews        — submit a review (auto-published once
+//                               every check below passes)
 //   GET  /api/reviews        — published (approved) reviews only
 //
 // Safety rules for this file:
 //   * every SQL statement is parameterised and lives in
 //     repositories/reviews.js
-//   * a review can only be written for a product that is in the
-//     order the customer proved they own
+//   * a review can only be written for a product on an order line
+//     of a DELIVERED order the customer proved they own
+//   * the server resolves which order line is being reviewed, so
+//     the browser never sees or sends an order-item id
 //   * "Verified Buyer" is set by the server after that proof, never
 //     by the browser
 //   * the status is always set to 'approved' by the server after
-//     the order number, email, product, duplicate, rating and text
-//     checks pass — the browser can never choose the status
+//     the order number, email, delivered status, order line,
+//     duplicate, rating and text checks pass
 //   * responses never contain the email address, the order number
 //     or any internal id
 //   * database errors are logged server-side and answered with a
@@ -31,9 +33,10 @@ import pool from "../db.js";
 import {
   createReview,
   findOrderForReview,
-  findOrderItemForReview,
-  findReviewForOrderProduct,
+  findReviewForOrderItem,
+  findUnreviewedOrderItemForReview,
   getPublicReviewById,
+  isOrderDelivered,
   listApprovedReviews,
   listOrderReviewableProducts,
   syncProductRating,
@@ -94,6 +97,15 @@ function text(value) {
 const ORDER_MISMATCH_MESSAGE =
   "We couldn't find an order matching that order number and email. Please check both and try again.";
 
+// Shown only after the customer has already proven the order is theirs, so it
+// reveals nothing to anyone else — it just tells a real shopper why the
+// review buttons are not active yet.
+const ORDER_NOT_DELIVERED_MESSAGE =
+  "Reviews open once your order has been delivered. We'll email you when it arrives.";
+
+const ALL_ITEMS_REVIEWED_MESSAGE =
+  "You've already reviewed everything in this order. Thank you!";
+
 function sendDatabaseError(res, logContext, error) {
   console.error(`[reviews] ${logContext}:`, error?.message ?? "unknown");
   return res.status(503).json({
@@ -108,7 +120,12 @@ function sendDatabaseError(res, logContext, error) {
 // --------------------------------------------------------
 // Step 1 of the form: the customer types their order number and
 // checkout email, and gets back the products in that order.
-// No product can be offered here that is not genuinely theirs.
+// No product can be offered here that is not genuinely theirs, and
+// nothing can be offered until the order has been delivered.
+//
+// The response tells the client whether reviews are open yet, and
+// which lines are still reviewable, but it never exposes an order id
+// or an order-item id — the browser only ever works with product ids.
 // ========================================================
 router.post("/reviews/verify", verifyLimiter, async (req, res) => {
   // Honeypot: acknowledge quietly, store nothing, claim nothing.
@@ -138,7 +155,15 @@ router.post("/reviews/verify", verifyLimiter, async (req, res) => {
       });
     }
 
+    const delivered = isOrderDelivered(order);
+    // The item list is fetched either way so the customer can see what is on
+    // the way, but `reviewable` is false on every line until it is delivered.
     const products = await listOrderReviewableProducts(order.id);
+    const items = products.map((product) => ({
+      ...product,
+      reviewable: delivered && !product.alreadyReviewed,
+    }));
+
     return res.status(200).json({
       success: true,
       // The order number is echoed back because the customer just typed it —
@@ -146,8 +171,19 @@ router.post("/reviews/verify", verifyLimiter, async (req, res) => {
       // the browser or shown to other visitors.
       orderNumber: order.order_number,
       orderPlacedAt: order.created_at,
-      products,
-      reviewableCount: products.filter((product) => !product.alreadyReviewed).length,
+      // Safe to show: this is the customer's own order status, and it has
+      // already been proven with the checkout email.
+      orderStatus: order.status,
+      delivered,
+      products: items,
+      reviewableCount: items.filter((product) => product.reviewable).length,
+      // The form uses this to explain the empty state instead of showing a
+      // bare "nothing to review" with no reason.
+      message: !delivered
+        ? ORDER_NOT_DELIVERED_MESSAGE
+        : items.some((product) => product.reviewable)
+          ? undefined
+          : ALL_ITEMS_REVIEWED_MESSAGE,
     });
   } catch (error) {
     return sendDatabaseError(res, "order verification failed", error);
@@ -175,12 +211,13 @@ function validateOrderLookup(body = {}) {
 // 2. SUBMIT A REVIEW  →  POST /api/reviews
 // --------------------------------------------------------
 // Step 2: the order is verified again from scratch (never trust
-// the earlier step), the product is confirmed to be inside that
-// order, a duplicate is refused, and only then is the row
-// written as 'approved' with verified_buyer = 1. In the same
-// transaction the product's rating is recalculated from its
-// approved reviews, so the public number is correct the moment
-// the response leaves the server.
+// the earlier step), the order must be DELIVERED, the server
+// resolves which unreviewed order line this product refers to, a
+// duplicate is refused, and only then is the row written as
+// 'approved' with source = 'customer' and verified_buyer = 1. In
+// the same transaction the product's rating is recalculated from
+// its approved CUSTOMER reviews, so the public number is correct
+// the moment the response leaves the server.
 // ========================================================
 router.post("/reviews", submitLimiter, async (req, res) => {
   const body = req.body ?? {};
@@ -236,10 +273,44 @@ router.post("/reviews", submitLimiter, async (req, res) => {
       });
     }
 
-    // 3. The product must be one of the items in that order.
-    const orderItem = await findOrderItemForReview(order.id, productId, connection);
-    if (!orderItem) {
+    // 3. The order must be DELIVERED. This is checked here, not only in the
+    //    form, so the endpoint cannot be posted to directly for an order that
+    //    is still in transit.
+    if (!isOrderDelivered(order)) {
       await connection.rollback();
+      return res.status(409).json({
+        success: false,
+        code: "ORDER_NOT_DELIVERED",
+        message: ORDER_NOT_DELIVERED_MESSAGE,
+      });
+    }
+
+    // 4. Resolve the exact order line server-side and confirm it has no
+    //    review yet. The browser only sent a product id, so it cannot ask
+    //    for a line that is not in this order, and cannot ask twice.
+    const orderItem = await findUnreviewedOrderItemForReview(
+      order.id,
+      productId,
+      connection
+    );
+    if (!orderItem) {
+      // Either the product is not in this order at all, or that line has
+      // already been reviewed. Distinguish the two only for a proven owner.
+      const alreadyReviewed = await findReviewForOrderItem(
+        await findAnyOrderItemId(order.id, productId, connection),
+        connection
+      );
+      await connection.rollback();
+      if (alreadyReviewed) {
+        return res.status(409).json({
+          success: false,
+          code: "DUPLICATE_REVIEW",
+          message:
+            alreadyReviewed.status === "rejected"
+              ? "You have already reviewed this item from this order."
+              : "You have already reviewed this item — thank you!",
+        });
+      }
       return res.status(403).json({
         success: false,
         code: "PRODUCT_NOT_IN_ORDER",
@@ -247,58 +318,11 @@ router.post("/reviews", submitLimiter, async (req, res) => {
       });
     }
 
-    // 4. One review per order line. The unique index makes this race-proof.
-    const existing = await findReviewForOrderProduct(order.id, productId, connection);
-    if (existing) {
-      await connection.rollback();
-      return res.status(409).json({
-        success: false,
-        code: "DUPLICATE_REVIEW",
-        message:
-          existing.status === "rejected"
-            ? "You have already reviewed this item from this order."
-            : "You have already reviewed this item — thank you!",
-      });
-    }
-
-    // 5. Write it. Status is hard-coded to 'approved' in the repository and
-    //    verified_buyer to 1, because we got here only after steps 2–4 passed.
-    const reviewId = await createReview(
-      {
-        orderId: order.id,
-        orderNumber: order.order_number,
-        productId,
-        // The name is the snapshot from the order line, so the review still
-        // reads correctly if the product is renamed or deleted later.
-        productName: orderItem.product_name,
-        customerName: data.customerName,
-        customerEmail: data.email,
-        rating: data.rating,
-        reviewTitle: data.reviewTitle,
-        reviewText: data.reviewText,
-      },
-      connection
-    );
-
-    // 6. Recalculate the product's rating from its APPROVED reviews only, in
-    //    the same transaction as the insert, so the stored average can never
-    //    drift from the reviews a visitor can actually see.
-    const summary = await syncProductRating(productId, connection);
-
-    // 7. Read the new row back in its public shape. This object deliberately
-    //    has no email, no order number and no database id, so it is safe to
-    //    hand straight to the browser for an instant display.
-    const review = await getPublicReviewById(reviewId, connection);
-
+    // 5. One review per order line. The unique index on order_item_id makes
+    //    this race-proof even against two simultaneous submissions.
+    const payload = await saveCustomerReview({ connection, order, orderItem, productId, data });
     await connection.commit();
-    return res.status(201).json({
-      success: true,
-      status: "approved",
-      verifiedBuyer: true,
-      review,
-      summary,
-      message: "Thank you! Your review is verified and is now published.",
-    });
+    return res.status(201).json(payload);
   } catch (error) {
     await connection.rollback();
     // The unique key is the final guard against a double submission that
@@ -315,6 +339,70 @@ router.post("/reviews", submitLimiter, async (req, res) => {
     connection.release();
   }
 });
+
+/**
+ * The half of submission that writes. Split out so the checks that prove the
+ * purchase stay readable, and so the insert + rating re-sync are obviously one
+ * unit of work.
+ *
+ * Assumes the connection is already inside a transaction, and must be called
+ * before `commit()`.
+ */
+async function saveCustomerReview({ connection, order, orderItem, productId, data }) {
+  // Write it. Status is hard-coded to 'approved' and source to 'customer' in
+  // the repository, and verified_buyer to 1, because we got here only after
+  // every check passed.
+  const reviewId = await createReview(
+    {
+      orderId: order.id,
+      // The order line the server resolved — the customer never sent this.
+      orderItemId: Number(orderItem.order_item_id),
+      orderNumber: order.order_number,
+      productId,
+      // The name is the snapshot from the order line, so the review still
+      // reads correctly if the product is renamed or deleted later.
+      productName: orderItem.product_name,
+      customerName: data.customerName,
+      customerEmail: data.email,
+      rating: data.rating,
+      reviewTitle: data.reviewTitle,
+      reviewText: data.reviewText,
+    },
+    connection
+  );
+
+  // Recalculate the product's rating from its APPROVED CUSTOMER reviews only,
+  // in the same transaction as the insert, so the stored average can never
+  // drift from the reviews a visitor can actually see.
+  const summary = await syncProductRating(productId, connection);
+
+  // Read the new row back in its public shape. This object deliberately
+  // has no email, no order number and no database id, so it is safe to
+  // hand straight to the browser for an instant display.
+  const review = await getPublicReviewById(reviewId, connection);
+
+  return {
+    success: true,
+    status: "approved",
+    verifiedBuyer: true,
+    review,
+    summary,
+    message: "Thank you! Your review is verified and is now published.",
+  };
+}
+
+/**
+ * Look up the first order line for a product in an order, reviewed or not.
+ * Only used to produce a precise "already reviewed" message for a customer
+ * who has already proven they own the order.
+ */
+async function findAnyOrderItemId(orderId, productId, connection) {
+  const [rows] = await connection.execute(
+    "SELECT id FROM order_items WHERE order_id = ? AND product_id = ? ORDER BY id ASC LIMIT 1",
+    [orderId, String(productId)]
+  );
+  return rows[0]?.id ?? null;
+}
 
 // ========================================================
 // 3. READ APPROVED REVIEWS  →  GET /api/reviews

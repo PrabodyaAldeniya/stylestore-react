@@ -1,4 +1,5 @@
 import pool from "../db.js";
+import { MAX_SEARCH_LENGTH } from "../validation/product.js";
 
 const PRODUCT_COLUMNS = `
   p.id,
@@ -148,6 +149,8 @@ function listQuery({
   stock,
   sort,
   trashOnly,
+  minPrice,
+  maxPrice,
 }) {
   const conditions = [];
   const values = [];
@@ -166,13 +169,37 @@ function listQuery({
     conditions.push("p.status = ?");
     values.push(status);
   }
+
+  // ============================================
+  // SECTION: Product search
+  // --------------------------------------------------------
+  // A customer can search by name, SKU, category, product type,
+  // short description or an available colour.
+  //
+  // Every part of the condition is a *bound* value — the term is only
+  // ever sent to MySQL as a `?` parameter, never spliced into the SQL
+  // text. `%` and `_` have already been stripped by parseSearchTerm(),
+  // so a visitor cannot turn a short term into a full-table scan.
+  // The colour test uses EXISTS so a product is returned once even when
+  // several of its colours match.
+  // ============================================
   if (search) {
     conditions.push(
-      "(p.name LIKE ? OR p.sku LIKE ? OR p.category LIKE ? OR p.product_type LIKE ? OR p.short_description LIKE ?)"
+      `(p.name LIKE ?
+        OR p.sku LIKE ?
+        OR p.category LIKE ?
+        OR p.product_type LIKE ?
+        OR p.short_description LIKE ?
+        OR EXISTS (
+             SELECT 1 FROM product_colours pc
+              WHERE pc.product_id = p.id
+                AND pc.name LIKE ?
+           ))`
     );
     const term = `%${search}%`;
-    values.push(term, term, term, term, term);
+    values.push(term, term, term, term, term, term);
   }
+
   if (category) {
     conditions.push("p.category = ?");
     values.push(category);
@@ -181,6 +208,17 @@ function listQuery({
     conditions.push("p.product_type = ?");
     values.push(productType);
   }
+
+  // ---- Price filters (used by the public catalogue) ----
+  if (minPrice !== null && minPrice !== undefined) {
+    conditions.push("p.price >= ?");
+    values.push(minPrice);
+  }
+  if (maxPrice !== null && maxPrice !== undefined) {
+    conditions.push("p.price <= ?");
+    values.push(maxPrice);
+  }
+
   if (STOCK_FILTERS.includes(stock)) {
     if (stock === "out_of_stock") {
       conditions.push("p.stock_quantity = 0");
@@ -223,15 +261,21 @@ export async function listProducts(options = {}, connection = pool) {
     MAX_PAGE_SIZE
   );
   const page = Math.max(Number(options.page) || 1, 1);
+  // The search term is trimmed and length-capped by the route (see
+  // parseSearchTerm in validation/product.js). This is the second,
+  // repository-level guard so a caller can never pass an unbounded term.
+  const search = String(options.search ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
   const query = listQuery({
     includeDrafts,
-    search: options.search?.trim() || "",
+    search,
     category: options.category?.trim() || "",
     productType: options.productType?.trim() || "",
     status: options.status,
     stock: options.stock,
     sort: options.sort,
     trashOnly: Boolean(options.trashOnly),
+    minPrice: numberOrNull(options.minPrice),
+    maxPrice: numberOrNull(options.maxPrice),
   });
 
   const [rows] = await connection.query(
@@ -256,6 +300,8 @@ export async function listProducts(options = {}, connection = pool) {
     page,
     pageSize,
     hasMore: page * pageSize < total,
+    // Echoed back so the catalogue can show exactly what was searched for.
+    search,
   };
 }
 

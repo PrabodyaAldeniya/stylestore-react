@@ -7,6 +7,7 @@ import "./App.css";
 import "./checkout.css";
 import "./orderHistory.css";
 import App from "./App.jsx";
+import ProductsPage from "./pages/ProductsPage.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import OrderSuccess from "./pages/OrderSuccess.jsx";
 import OrderHistory from "./pages/OrderHistory.jsx";
@@ -30,6 +31,10 @@ createRoot(document.getElementById("root")).render(
         <PromoPopup />
         <Routes>
           <Route path="/" element={<App />} />
+          {/* The searchable catalogue. The search term lives in the URL,
+              e.g. /products?search=dress, so a search can be shared and
+              reached with the browser Back button. */}
+          <Route path="/products" element={<ProductsPage />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success/:orderNumber" element={<OrderSuccess />} />
           <Route path="/orders" element={<OrderHistory />} />

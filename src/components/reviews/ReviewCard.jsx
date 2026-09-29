@@ -9,9 +9,16 @@
    strip here — this component only chooses what to show:
 
      stars · optional title · the message · display name ·
-     "Verified Buyer" badge · product name · the date
+     an honest source badge · product name · the date
+
+   SOURCE BADGE
+     A review the store owner wrote for itself is labelled as a
+     StyleStore testimonial, never "Verified Buyer". Only a real
+     purchase carries the verified badge, and only verified
+     purchases are counted in a product's star rating, so the two
+     things can never disagree.
    ======================================================== */
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Sparkles } from "lucide-react";
 
 import { Stars } from "./StarRating";
 
@@ -40,6 +47,9 @@ function ReviewCard({ review, showProduct = true, compact = false }) {
   if (!review) return null;
   const name = review.name || "StyleStore customer";
   const date = formatReviewDate(review.createdAt);
+  // Older responses may not carry `source`; fall back to the verified flag so
+  // an existing review still shows the badge it always showed.
+  const isEditorial = review.source === "admin" || (!review.source && !review.verifiedBuyer);
 
   return (
     <article className={compact ? "rv-card is-compact" : "rv-card"}>
@@ -64,10 +74,16 @@ function ReviewCard({ review, showProduct = true, compact = false }) {
         <div className="rv-card-author-text">
           <strong>{name}</strong>
           <span className="rv-card-meta">
-            {review.verifiedBuyer && (
-              <span className="rv-verified">
-                <BadgeCheck size={13} aria-hidden /> Verified Buyer
+            {isEditorial ? (
+              <span className="rv-editorial">
+                <Sparkles size={13} aria-hidden /> {review.sourceLabel || "StyleStore Testimonial"}
               </span>
+            ) : (
+              review.verifiedBuyer && (
+                <span className="rv-verified">
+                  <BadgeCheck size={13} aria-hidden /> {review.sourceLabel || "Verified Buyer"}
+                </span>
+              )
             )}
             {showProduct && review.productName && (
               <span className="rv-card-product">{review.productName}</span>

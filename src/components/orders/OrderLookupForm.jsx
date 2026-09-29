@@ -1,7 +1,7 @@
 /* ========================================
    1. IMPORTS
 ======================================== */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Loader2, Search, ShieldCheck } from "lucide-react";
 
 import { lookupOrder } from "../../lib/orderHistoryApi";
@@ -32,6 +32,23 @@ function OrderLookupForm() {
 
   /* ===== 4. EVENT HANDLERS ===== */
 
+  /**
+   * Re-run the same lookup after a review is published, so the order the
+   * customer proved they own is refetched and the line they just reviewed
+   * flips to "Reviewed". The order number + email are still in state, so no
+   * extra input is needed. The server stays the only source of truth for what
+   * is reviewable.
+   */
+  const refetchResult = useCallback(async () => {
+    const cleanNumber = orderNumber.trim().toUpperCase();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!ORDER_PATTERN.test(cleanNumber) || !EMAIL_PATTERN.test(cleanEmail)) return;
+    const { ok, data } = await lookupOrder(cleanNumber, cleanEmail);
+    if (!ok || !data?.order) return;
+    setResultOrder(data.order);
+    setDisplayedOrder(data.order);
+  }, [orderNumber, email]);
+
   const submitLookup = async (event) => {
     event.preventDefault();
 
@@ -54,10 +71,13 @@ function OrderLookupForm() {
 
     if (ok && data?.order) {
       setResultOrder(data.order);
+      setDisplayedOrder(data.order);
       setFeedback({
         type: "success",
         title: "Order found",
-        message: `Order ${data.order.orderNumber} was found.`,
+        message: data.order.reviewsOpen
+          ? `Order ${data.order.orderNumber} was found. You can review anything you have not reviewed yet.`
+          : `Order ${data.order.orderNumber} was found. Reviews open once it has been delivered.`,
       });
       return;
     }
@@ -163,9 +183,16 @@ function OrderLookupForm() {
         </div>
       )}
 
-      {/* ---- Details modal for the lookup result ---- */}
+      {/* ---- Details modal for the lookup result ----
+          This is also the cross-device way to review: the customer is already
+          on this screen on a different device, and the details dialog carries
+          the per-line review buttons. */}
       {displayedOrder && (
-        <OrderDetails order={displayedOrder} onClose={() => setDisplayedOrder(null)} />
+        <OrderDetails
+          order={displayedOrder}
+          onClose={() => setDisplayedOrder(null)}
+          onReviewSubmitted={refetchResult}
+        />
       )}
     </div>
   );

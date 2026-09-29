@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Heart,
   Menu,
@@ -12,10 +12,11 @@ import {
 
 /* ========================================
    NAVBAR — logo, links, search, icons
-======================================== */
+   ======================================== */
 function Navbar({
-  searchTerm,
-  setSearchTerm,
+  searchTerm = "",
+  onSearchSubmit,
+  onSearchClear,
   wishlistCount,
   cartCount,
   onOpenCart,
@@ -26,6 +27,49 @@ function Navbar({
   // Mobile hamburger menu state.
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  // ========================================
+  // SECTION: Search form state
+  // --------------------------------------------------------
+  // `draft` is what the customer has typed; `searchTerm` is the term
+  // that has actually been searched (it comes from the URL). Keeping
+  // them apart means the input never fights the page: typing does not
+  // search, submitting does, and the input still shows the live term
+  // once the results are on screen.
+  // ========================================
+  const [draft, setDraft] = useState(searchTerm);
+
+  // When the URL term changes (back button, a category link, a search
+  // that ran from another page) the input follows it.
+  //
+  // This is adjusted during render rather than in an effect: `lastTerm`
+  // records the prop the draft was built from, so a changed prop re-syncs
+  // the input in the same render instead of triggering a second pass. An
+  // effect here would be a redundant re-render on every search.
+  const [lastTerm, setLastTerm] = useState(searchTerm);
+  if (lastTerm !== searchTerm) {
+    setLastTerm(searchTerm);
+    setDraft(searchTerm);
+  }
+
+  // Submitting: trim the spaces, then hand the term to the page.
+  // Pressing Enter in the input and clicking the magnifier both land
+  // here, because the input and the icon live inside one <form>.
+  const submitSearch = (event) => {
+    event.preventDefault();
+    const cleanTerm = draft.trim();
+    if (!cleanTerm) {
+      clearSearch();
+      return;
+    }
+    onSearchSubmit?.(cleanTerm);
+  };
+
+  // The little cross inside the input: empties the box AND the results.
+  const clearSearch = () => {
+    setDraft("");
+    onSearchClear?.();
+  };
 
   // Active link + navigation handler. Keeps the header in sync
   // with where the user is on the page.
@@ -42,6 +86,7 @@ function Navbar({
       onNavigate?.(label);
     });
   };
+
 
   // While the mobile drawer is open: lock background scroll and
   // close it when Escape is pressed.
@@ -73,10 +118,10 @@ function Navbar({
       ======================================== */}
       <header className={`site-header ${scrolled ? "scrolled" : ""}`}>
         <nav className="navbar" aria-label="Main navigation">
-          {/* ---- Logo ---- */}
-          <a href="#home" className="logo" aria-label="StyleStore home">
+          {/* ---- Logo (goes back to the store home) ---- */}
+          <Link to="/" className="logo" aria-label="StyleStore home">
             Style<span>Store</span>
-          </a>
+          </Link>
 
           {/* ---- Desktop links ---- */}
           <div className="nav-links">
@@ -95,28 +140,47 @@ function Navbar({
 
           {/* ---- Search + action icons ---- */}
           <div className="navbar-actions">
-            {/* Search */}
-            <div className="search-box">
-              <Search size={16} strokeWidth={2} aria-hidden="true" />
+            {/* ========================================
+                SEARCH
+                One <form>: Enter inside the field and a click
+                on the magnifier both submit the same search.
+            ======================================== */}
+            <form
+              className="search-box"
+              role="search"
+              onSubmit={submitSearch}
+              aria-label="Search products"
+            >
+              <button
+                type="submit"
+                className="search-submit"
+                aria-label="Search products"
+                title="Search"
+              >
+                <Search size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
 
               <input
                 type="search"
                 placeholder="Search products..."
-                aria-label="Search products"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                aria-label="Search products by name, SKU, category or colour"
+                name="search"
+                autoComplete="off"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
               />
 
-              {searchTerm && (
+              {draft && (
                 <button
+                  type="button"
                   className="search-clear"
                   aria-label="Clear search"
-                  onClick={() => setSearchTerm("")}
+                  onClick={clearSearch}
                 >
                   <X size={14} />
                 </button>
               )}
-            </div>
+            </form>
 
             {/* Account */}
             <button className="icon-button" aria-label="My account">

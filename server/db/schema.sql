@@ -165,15 +165,17 @@ CREATE TABLE IF NOT EXISTS system_seed_markers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- Product reviews — the real testimonial system.
+-- Product reviews — purchased-product reviews plus editorial
+-- testimonials.
 --
--- Replaces the old hard-coded homepage reviews. A customer
--- proves their purchase with an order number + the checkout
--- email, the server verifies the order, the product, the
--- duplicate rule, the rating and the text, and only then is the
--- review stored as 'approved'. Only 'approved' rows are ever
--- read by the public API. The owner can later hide, reject,
--- restore or delete a review.
+-- A customer proves their purchase with an order number + the
+-- checkout email, the server verifies the order was DELIVERED
+-- and that the product is on an unreviewed line of that order,
+-- checks the rating and the text, and only then is the review
+-- stored as 'approved' with source = 'customer'. Only 'approved'
+-- rows are ever read by the public API. The owner can later hide,
+-- reject, archive, restore or delete a review, and can write
+-- their own testimonials with source = 'admin'.
 --
 -- Safe by design:
 --   * product_id / order_id carry NO foreign key on purpose, so
@@ -182,29 +184,45 @@ CREATE TABLE IF NOT EXISTS system_seed_markers (
 --   * product_name is a snapshot (the same approach order_items
 --     uses), so an approved review stays readable even after the
 --     product row itself is gone.
---   * UNIQUE(order_id, product_id) blocks duplicate reviews for
---     the same order line, even under concurrent requests.
+--   * order_item_id is the exact order line a customer review
+--     belongs to, and UNIQUE(order_item_id) is the real
+--     "one review per purchased item" guarantee — two clicks at
+--     the same moment cannot both succeed. MySQL allows many
+--     NULL values in a unique key, which is exactly what an
+--     admin review has.
+--   * source separates a real purchase from a testimonial the
+--     store wrote for itself. ONLY source = 'customer' reviews
+--     feed a product's star rating, so a testimonial can never
+--     inflate it. An admin review is always verified_buyer = 0.
+--   * order_number / customer_email are NULL-able because an
+--     admin review belongs to no order and has no customer.
 --   * customer_email is for the admin screen only. It is never
 --     part of a public response, and neither is the order number.
+--
+-- This mirrors server/db/reviewMigrations.js, which brings an
+-- existing database to this shape additively and repeatably.
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS product_reviews (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id     INT UNSIGNED NULL,
   product_name   VARCHAR(255) NOT NULL,
   order_id       INT UNSIGNED NULL,
-  order_number   VARCHAR(50)  NOT NULL,
+  order_item_id  INT UNSIGNED NULL,
+  order_number   VARCHAR(50)  NULL,
   customer_name  VARCHAR(100) NOT NULL,
-  customer_email VARCHAR(255) NOT NULL,
+  customer_email VARCHAR(255) NULL,
   rating         TINYINT UNSIGNED NOT NULL,
   review_title   VARCHAR(160) NULL,
   review_text    TEXT         NOT NULL,
   verified_buyer TINYINT(1)   NOT NULL DEFAULT 0,
-  status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  source         VARCHAR(20)  NOT NULL DEFAULT 'customer',
+  status         ENUM('draft','pending','approved','rejected','hidden','archived') NOT NULL DEFAULT 'draft',
   created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_reviews_order_product (order_id, product_id),
+  UNIQUE KEY uq_reviews_order_item (order_item_id),
   KEY idx_reviews_status (status, created_at),
+  KEY idx_reviews_source (source),
   KEY idx_reviews_product (product_id, status),
   KEY idx_reviews_order_number (order_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

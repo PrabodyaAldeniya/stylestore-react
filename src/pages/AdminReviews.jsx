@@ -1,29 +1,41 @@
 /* ========================================================
    ADMIN REVIEWS
    --------------------------------------------------------
-   The moderation screen for the customer review system.
+   The moderation screen for reviews and testimonials.
 
-   Verified reviews are published automatically, so this page is
+   Customer reviews are published automatically, so this page is
    for moderation after the fact. The owner can:
-     · switch between Approved / Rejected / Pending / All
+     · filter by state: Published / Draft / Pending / Hidden /
+       Rejected / Archived / All
+     · filter by kind: All / Customer reviews / Testimonials
      · search by customer name, email, order number or product
      · read the full review text before deciding
-     · HIDE a published review, REJECT a pending one,
-       RESTORE a hidden one, or DELETE it safely
+     · HIDE a published review, REJECT a pending one, ARCHIVE one
+       to retire it, RESTORE any of them, or DELETE it safely
      · see at a glance whether the purchase was actually
        verified against the orders table
+     · WRITE their own testimonial, saved as a draft first
 
    Only this screen ever shows a customer's email address and
    order number. Every call goes through the protected admin API,
    and an expired session redirects to the login page.
 
-   Hiding, rejecting, restoring or deleting also re-syncs the
-   product's displayed average rating on the server, so the shop
-   numbers follow the decisions made here.
+   Two kinds of review, kept clearly separate:
+     · CUSTOMER — a real purchase. Only these count towards a
+       product's star rating, and only these carry the Verified
+       Buyer badge.
+     · TESTIMONIAL — written here by the owner. Labelled as a
+       StyleStore testimonial, never a verified purchase, and
+       never counted in the star rating.
+
+   Any moderation action re-syncs each product's displayed
+   average rating from the approved CUSTOMER reviews on the
+   server, so the shop numbers follow the decisions made here.
    ======================================================== */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Archive,
   ArchiveRestore,
   ArrowLeft,
   BadgeCheck,
@@ -33,8 +45,10 @@ import {
   EyeOff,
   Info,
   Loader2,
+  PencilLine,
   RefreshCw,
   Search,
+  Sparkles,
   Star,
   Trash2,
   X,
@@ -47,15 +61,39 @@ import {
   logoutAdmin,
   updateAdminReviewStatus,
 } from "../lib/adminApi";
+import WriteTestimonialForm from "../components/admin/WriteTestimonialForm";
 import "../admin.css";
 
-// Published first, because verified reviews are published automatically.
+// Every state a review can be in, plus "all". Published first because
+// customer reviews go live automatically.
 const STATUS_TABS = [
   { value: "approved", label: "Published" },
-  { value: "rejected", label: "Hidden" },
+  { value: "draft", label: "Drafts" },
   { value: "pending", label: "Pending" },
+  { value: "hidden", label: "Hidden" },
+  { value: "rejected", label: "Rejected" },
+  { value: "archived", label: "Archived" },
   { value: "all", label: "All" },
 ];
+
+// Which kind of review to show. "all" shows both.
+const SOURCE_TABS = [
+  { value: "all", label: "Everything" },
+  { value: "customer", label: "Customer reviews" },
+  { value: "admin", label: "Testimonials" },
+];
+
+// An empty counts object so the first render never reads undefined.
+const EMPTY_COUNTS = {
+  draft: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  hidden: 0,
+  archived: 0,
+  total: 0,
+  bySource: { customer: 0, admin: 0 },
+};
 
 function formatDate(value) {
   if (!value) return "";
@@ -89,26 +127,47 @@ function StarRow({ rating }) {
 }
 
 function StatusBadge({ status }) {
-  return (
-    <span className={`adm-status adm-review-status-${status}`}>{status}</span>
-  );
+  return <span className={`adm-status adm-review-status-${status}`}>{status}</span>;
+}
+
+/** Verified badge for a real purchase, testimonial badge for the owner's own. */
+function SourceBadge({ review }) {
+  if (review.source === "admin") {
+    return (
+      <span className="adm-review-testimonial">
+        <Sparkles size={13} aria-hidden /> Testimonial
+      </span>
+    );
+  }
+  if (review.verifiedBuyer) {
+    return (
+      <span className="adm-review-verified">
+        <BadgeCheck size={13} aria-hidden /> Verified Buyer
+      </span>
+    );
+  }
+  return <span className="adm-review-unverified">Purchase not verified</span>;
 }
 
 export default function AdminReviews() {
   const navigate = useNavigate();
 
-  // Published reviews are the default view because reviews go live
+  // Published reviews are the default view because customer reviews go live
   // automatically. Pending is still available for anything unusual.
   const [status, setStatus] = useState("approved");
+  const [source, setSource] = useState("all");
   const [search, setSearch] = useState("");
   const [reviews, setReviews] = useState([]);
   const [total, setTotal] = useState(0);
-  const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [counts, setCounts] = useState(EMPTY_COUNTS);
   const [listStatus, setListStatus] = useState("loading");
   const [listError, setListError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [notice, setNotice] = useState(null);
   const [preview, setPreview] = useState(null);
+  // The testimonial composer. The product list it needs is fetched by the
+  // composer itself, so this page holds no product state at all.
+  const [composing, setComposing] = useState(false);
 
   const load = useCallback(async () => {
     setListStatus("loading");
@@ -117,11 +176,12 @@ export default function AdminReviews() {
       const result = await listAdminReviews({
         pageSize: 100,
         status: status === "all" ? "" : status,
+        source: source === "all" ? "" : source,
         search,
       });
       setReviews(result.reviews || []);
       setTotal(Number(result.total || 0));
-      if (result.counts) setCounts(result.counts);
+      if (result.counts) setCounts({ ...EMPTY_COUNTS, ...result.counts });
       setListStatus("success");
     } catch (error) {
       if (error.code === "AUTH_REQUIRED") {
@@ -131,7 +191,7 @@ export default function AdminReviews() {
       setListError(error.message || "Reviews could not be loaded.");
       setListStatus("error");
     }
-  }, [status, search, navigate]);
+  }, [status, source, search, navigate]);
 
   // Debounced so typing in the search box does not spam the API.
   useEffect(() => {
@@ -144,13 +204,7 @@ export default function AdminReviews() {
     let cancelled = false;
     getAdminReviewCounts()
       .then((result) => {
-        if (!cancelled) {
-          setCounts({
-            pending: Number(result.pending || 0),
-            approved: Number(result.approved || 0),
-            rejected: Number(result.rejected || 0),
-          });
-        }
+        if (!cancelled) setCounts({ ...EMPTY_COUNTS, ...result });
       })
       .catch(() => {
         if (!cancelled) return;
@@ -161,6 +215,20 @@ export default function AdminReviews() {
   }, [listStatus]);
 
   const flash = (type, message) => setNotice({ type, message });
+
+  // The composer looks products up itself as the owner types, so opening
+  // it is instant and no catalogue page is fetched here.
+  const openComposer = useCallback(() => {
+    setComposing(true);
+  }, []);
+
+  // Memoized because the composer runs a product lookup in an effect keyed
+  // on this handler: a new function identity every render would refetch the
+  // product list forever.
+  const handleAuthExpired = useCallback(() => {
+    setComposing(false);
+    navigate("/admin/login", { replace: true });
+  }, [navigate]);
 
   const runAction = async (review, action, successMessage) => {
     setBusyId(review.id);
@@ -180,26 +248,49 @@ export default function AdminReviews() {
     }
   };
 
-  // Approve / restore. Both move the review to 'approved' — the only status
+  // Publish / restore. Both move the review to 'approved' — the only status
   // the public site reads. The wording just reflects where it came from.
   const approve = (review) =>
     runAction(
       review,
       () => updateAdminReviewStatus(review.id, "approved"),
-      review.status === "rejected"
-        ? `Restored. "${review.customerName}"'s review is live again.`
-        : `Published. "${review.customerName}"'s review is now live on the website.`
+      review.status === "approved"
+        ? `Already published.`
+        : `Published. ${review.source === "admin" ? "The testimonial" : `"${review.customerName}"'s review`} is now live on the website.`
     );
 
-  // Reject (pending) / hide (already published). Both set 'rejected', which is
-  // never returned by a public endpoint.
+  // Reject (pending) / hide (already published). 'hidden' pulls a published
+  // review back without treating it as spam; 'rejected' is the harsher call on
+  // something that was never published.
+  const hide = (review) =>
+    runAction(
+      review,
+      () => updateAdminReviewStatus(review.id, "hidden"),
+      `Hidden. It no longer appears on the website, and you can restore it at any time.`
+    );
+
   const reject = (review) =>
     runAction(
       review,
       () => updateAdminReviewStatus(review.id, "rejected"),
-      review.status === "approved"
-        ? `Hidden. "${review.customerName}"'s review no longer appears on the website.`
-        : `Rejected. "${review.customerName}"'s review stays hidden from the website.`
+      `Rejected. It stays hidden from the website.`
+    );
+
+  // Archive retires a review without destroying the customer's record of what
+  // they wrote, and it can be brought back from the Archived tab.
+  const archive = (review) =>
+    runAction(
+      review,
+      () => updateAdminReviewStatus(review.id, "archived"),
+      `Archived. It is kept on record and can be restored from the Archived tab.`
+    );
+
+  // Draft is where the owner's own half-written testimonials live.
+  const toDraft = (review) =>
+    runAction(
+      review,
+      () => updateAdminReviewStatus(review.id, "draft"),
+      `Moved back to draft. It is not published.`
     );
 
   const remove = (review) => {
@@ -215,7 +306,7 @@ export default function AdminReviews() {
     navigate("/admin/login", { replace: true });
   };
 
-  const filtersActive = search !== "" || status !== "approved";
+  const filtersActive = search !== "" || status !== "approved" || source !== "all";
   const pendingTotal = counts.pending;
 
   const heading = useMemo(
@@ -232,7 +323,7 @@ export default function AdminReviews() {
           </button>
           <span className="eyebrow">STYLESTORE ADMIN</span>
           <h1>
-            Customer Reviews{" "}
+            Reviews &amp; Testimonials{" "}
             {/* Visible pending count, so nothing waits unnoticed. */}
             {pendingTotal > 0 && (
               <span className="adm-trash-count adm-review-badge" aria-label={`${pendingTotal} pending`}>
@@ -241,14 +332,17 @@ export default function AdminReviews() {
             )}
           </h1>
           <p>
-            Verified reviews are <strong>published automatically</strong> as soon as the server
-            confirms the order number, checkout email, purchased product, duplicate rule, rating
-            and review text. Use the actions here to hide, reject, restore or delete a review if
-            needed. A review is only marked Verified Buyer when its order number and checkout
-            email matched a real order.
+            Customer reviews are <strong>published automatically</strong> as soon as the server
+            confirms the order was <strong>delivered</strong> and that the order number, checkout
+            email and purchased item all match a real order line nobody has reviewed yet. Only
+            these count towards a product&rsquo;s star rating. You can also write your own
+            testimonial — it is labelled honestly and never counted as a purchase.
           </p>
         </div>
         <div className="admin-header-actions">
+          <button type="button" className="adm-button adm-button-primary" onClick={openComposer}>
+            <PencilLine size={15} aria-hidden /> Write a testimonial
+          </button>
           <button type="button" className="adm-button adm-button-ghost" onClick={load}>
             <RefreshCw size={15} aria-hidden /> Refresh
           </button>
@@ -280,14 +374,48 @@ export default function AdminReviews() {
         </div>
       )}
 
+      {composing && (
+        <WriteTestimonialForm
+          onCancel={() => setComposing(false)}
+          onAuthExpired={handleAuthExpired}
+          onCreated={(result) => {
+            setComposing(false);
+            flash("success", result?.message || "Testimonial saved as a draft.");
+            // Show the Drafts tab so the owner can see exactly where it went.
+            setStatus("draft");
+            setSource("admin");
+          }}
+        />
+      )}
+
       <section className="admin-list-panel" aria-label="Review moderation">
+        {/* ---- Kind filter: real purchases vs the owner's own words ---- */}
+        <div className="adm-review-tabs adm-review-source-tabs" role="tablist" aria-label="Review kind">
+          {SOURCE_TABS.map((tab) => {
+            const count =
+              tab.value === "all"
+                ? counts.total
+                : counts.bySource?.[tab.value] ?? EMPTY_COUNTS.bySource[tab.value];
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={source === tab.value}
+                className={source === tab.value ? "adm-review-tab is-active" : "adm-review-tab"}
+                onClick={() => setSource(tab.value)}
+              >
+                {tab.label}
+                <span className="adm-review-tab-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* ---- Status tabs with live counts ---- */}
         <div className="adm-review-tabs" role="tablist" aria-label="Review status">
           {STATUS_TABS.map((tab) => {
-            const count =
-              tab.value === "all"
-                ? counts.pending + counts.approved + counts.rejected
-                : counts[tab.value];
+            const count = tab.value === "all" ? counts.total : counts[tab.value] ?? 0;
             return (
               <button
                 key={tab.value}
@@ -335,6 +463,7 @@ export default function AdminReviews() {
               onClick={() => {
                 setSearch("");
                 setStatus("approved");
+                setSource("all");
               }}
             >
               Clear all filters
@@ -369,10 +498,17 @@ export default function AdminReviews() {
             <p>
               {filtersActive
                 ? "No reviews match these filters."
-                : status === "pending"
-                  ? `No reviews are waiting for approval. ${counts.approved} review${counts.approved === 1 ? " is" : "s are"} live on the website.`
-                  : `No ${heading.toLowerCase()} reviews yet.`}
+                : status === "draft"
+                  ? "No drafts. Testimonials you write are saved here first."
+                  : status === "pending"
+                    ? `No reviews are waiting for approval. ${counts.approved} review${counts.approved === 1 ? " is" : "s are"} live on the website.`
+                    : `No ${heading.toLowerCase()} reviews yet.`}
             </p>
+            {status === "draft" && (
+              <button type="button" className="adm-button adm-button-primary" onClick={openComposer}>
+                <PencilLine size={15} aria-hidden /> Write a testimonial
+              </button>
+            )}
           </div>
         )}
 
@@ -380,19 +516,17 @@ export default function AdminReviews() {
           <ul className="adm-review-list">
             {reviews.map((review) => {
               const busy = busyId === review.id;
+              const isEditorial = review.source === "admin";
+              // Only 'approved' is on the website. Everything else can be put
+              // back, so the primary action is always "make it live".
+              const isLive = review.status === "approved";
               return (
                 <li className={`adm-review-row is-${review.status}`} key={review.id}>
                   <div className="adm-review-main">
                     <div className="adm-review-head">
                       <StarRow rating={review.rating} />
                       <StatusBadge status={review.status} />
-                      {review.verifiedBuyer ? (
-                        <span className="adm-review-verified">
-                          <BadgeCheck size={13} aria-hidden /> Verified Buyer
-                        </span>
-                      ) : (
-                        <span className="adm-review-unverified">Purchase not verified</span>
-                      )}
+                      <SourceBadge review={review} />
                       <time className="adm-review-date" dateTime={String(review.createdAt)}>
                         {formatDate(review.createdAt)}
                       </time>
@@ -408,19 +542,20 @@ export default function AdminReviews() {
 
                     <p className="adm-review-customer">
                       <strong>{review.customerName}</strong>
-                      <span className="adm-review-email">{review.customerEmail}</span>
-                      <code className="adm-sku">{review.orderNumber}</code>
+                      {/* An editorial review has no customer and no order, so
+                          nothing private is shown for it. */}
+                      {!isEditorial && <span className="adm-review-email">{review.customerEmail}</span>}
+                      {!isEditorial && <code className="adm-sku">{review.orderNumber}</code>}
                     </p>
                   </div>
 
                   <div className="adm-review-actions">
-                    {/* Published -> Hide.  Pending -> Publish or Reject.
-                        Hidden -> Restore.  Delete is always available. */}
-                    {review.status === "approved" ? (
+                    {/* Published -> Hide.  Anything else -> Publish/Restore. */}
+                    {isLive ? (
                       <button
                         type="button"
                         className="adm-button adm-button-secondary"
-                        onClick={() => reject(review)}
+                        onClick={() => hide(review)}
                         disabled={busy}
                       >
                         <EyeOff size={15} aria-hidden /> Hide
@@ -433,7 +568,21 @@ export default function AdminReviews() {
                         disabled={busy}
                       >
                         <ArchiveRestore size={15} aria-hidden />{" "}
-                        {review.status === "rejected" ? "Restore" : "Publish"}
+                        {review.status === "draft"
+                          ? "Publish"
+                          : review.status === "archived"
+                            ? "Restore"
+                            : "Publish"}
+                      </button>
+                    )}
+                    {isLive && (
+                      <button
+                        type="button"
+                        className="adm-button adm-button-secondary"
+                        onClick={() => archive(review)}
+                        disabled={busy}
+                      >
+                        <Archive size={15} aria-hidden /> Archive
                       </button>
                     )}
                     {review.status === "pending" && (
@@ -444,6 +593,16 @@ export default function AdminReviews() {
                         disabled={busy}
                       >
                         <Ban size={15} aria-hidden /> Reject
+                      </button>
+                    )}
+                    {isEditorial && (
+                      <button
+                        type="button"
+                        className="adm-button adm-button-secondary"
+                        onClick={() => toDraft(review)}
+                        disabled={busy}
+                      >
+                        <PencilLine size={15} aria-hidden /> Unpublish
                       </button>
                     )}
                     <button
@@ -476,11 +635,13 @@ export default function AdminReviews() {
         )}
 
         <p className="adm-price-hint">
-          <BadgeCheck size={13} aria-hidden /> Verified reviews are published automatically. Use{" "}
-          <strong>Hide</strong> to remove a published review, <strong>Reject</strong> for a pending
-          one, <strong>Restore</strong> to publish it again, or <strong>Delete</strong> to remove it
-          for good. Any of these updates that product&rsquo;s average rating. The customer&rsquo;s
-          email address is only ever shown here — never on the public pages.
+          <BadgeCheck size={13} aria-hidden /> Customer reviews are published automatically once
+          the order is delivered. Use <strong>Hide</strong> to pull a published review back,{" "}
+          <strong>Archive</strong> to retire it while keeping it on record, <strong>Reject</strong>{" "}
+          for a pending one, <strong>Restore</strong> to publish it again, or <strong>Delete</strong>{" "}
+          to remove it for good. Every one of these re-syncs the product&rsquo;s average rating from
+          its approved <em>customer</em> reviews only — a testimonial never moves the number. The
+          customer&rsquo;s email address is only ever shown here, never on the public pages.
         </p>
       </section>
 
@@ -506,11 +667,7 @@ export default function AdminReviews() {
             <div className="adm-review-head">
               <StarRow rating={preview.rating} />
               <StatusBadge status={preview.status} />
-              {preview.verifiedBuyer && (
-                <span className="adm-review-verified">
-                  <BadgeCheck size={13} aria-hidden /> Verified Buyer
-                </span>
-              )}
+              <SourceBadge review={preview} />
             </div>
 
             <h2>{preview.productName || "Unknown product"}</h2>
@@ -522,16 +679,25 @@ export default function AdminReviews() {
                 <dt>Customer</dt>
                 <dd>{preview.customerName}</dd>
               </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{preview.customerEmail}</dd>
-              </div>
-              <div>
-                <dt>Order number</dt>
-                <dd>
-                  <code className="adm-sku">{preview.orderNumber}</code>
-                </dd>
-              </div>
+              {preview.source === "admin" ? (
+                <div>
+                  <dt>Kind</dt>
+                  <dd>Editorial testimonial written by the store</dd>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <dt>Email</dt>
+                    <dd>{preview.customerEmail}</dd>
+                  </div>
+                  <div>
+                    <dt>Order number</dt>
+                    <dd>
+                      <code className="adm-sku">{preview.orderNumber}</code>
+                    </dd>
+                  </div>
+                </>
+              )}
               <div>
                 <dt>Submitted</dt>
                 <dd>{formatDate(preview.createdAt)}</dd>
@@ -542,7 +708,13 @@ export default function AdminReviews() {
               </div>
               <div>
                 <dt>Purchase</dt>
-                <dd>{preview.verifiedBuyer ? "Verified against a real order" : "Not verified"}</dd>
+                <dd>
+                  {preview.source === "admin"
+                    ? "Not a purchase — excluded from the star rating"
+                    : preview.verifiedBuyer
+                      ? "Verified against a delivered order"
+                      : "Not verified"}
+                </dd>
               </div>
             </dl>
 
@@ -557,7 +729,7 @@ export default function AdminReviews() {
                   onClick={() => {
                     const target = preview;
                     setPreview(null);
-                    reject(target);
+                    hide(target);
                   }}
                 >
                   <EyeOff size={15} aria-hidden /> Hide
@@ -573,7 +745,7 @@ export default function AdminReviews() {
                   }}
                 >
                   <ArchiveRestore size={15} aria-hidden />{" "}
-                  {preview.status === "rejected" ? "Restore" : "Publish"}
+                  {preview.status === "archived" ? "Restore" : "Publish"}
                 </button>
               )}
             </div>

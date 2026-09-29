@@ -1,4 +1,19 @@
-﻿import { Box, Loader2, RotateCcw } from "lucide-react";
+﻿/* ========================================================
+   PRODUCT LIST
+   --------------------------------------------------------
+   The grid of product cards, plus the three states a customer
+   can be in while it loads:
+
+     loading  — the spinner shown while the API answers
+     error    — the API could not be reached, with a retry button
+     empty    — the request worked but nothing matched
+
+   `emptyState` lets a caller (the search page) replace the default
+   "nothing matched" block with one that offers a Clear search
+   button, without this component needing to know anything about
+   searching.
+   ======================================================== */
+import { Box, Loader2, RotateCcw } from "lucide-react";
 
 import ProductCard from "./ProductCard";
 
@@ -7,6 +22,7 @@ function ProductList({
   status = "success",
   error = "",
   onRetry,
+  emptyState,
   wishlist,
   onAddToCart,
   onAddToWishlist,
@@ -38,6 +54,8 @@ function ProductList({
   }
 
   if (!products || products.length === 0) {
+    if (emptyState) return emptyState;
+
     return (
       <div className="products-empty">
         <span className="empty-icon"><Box size={30} /></span>

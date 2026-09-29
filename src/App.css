@@ -1173,6 +1173,20 @@ input, select, textarea {
   color: var(--ink);
 }
 .search-box input::placeholder { color: var(--sand-mid); }
+/* The magnifier is a real submit button, so pressing Enter and clicking
+   it run exactly the same search. */
+.search-submit {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--sand-mid);
+  flex: 0 0 auto;
+}
+.search-submit:hover { color: var(--ink); }
 .search-clear {
   background: none;
   border: 0;
@@ -1180,6 +1194,7 @@ input, select, textarea {
   display: grid;
   place-items: center;
   padding: 2px;
+  cursor: pointer;
 }
 .search-clear:hover { color: var(--ink); }
 
@@ -3180,4 +3195,237 @@ body, #root {
     flex-shrink: 0;
     z-index: 10;
   }
+}
+
+/* ========================================================
+   SEARCH PAGE  —  /products
+   --------------------------------------------------------
+   The catalogue page the navbar search box leads to. It uses the
+   same purple / cream / dark tokens as the rest of the store and
+   never forces a horizontal scrollbar: every row wraps, and the
+   grid falls back to a single column on small screens.
+   ======================================================== */
+.search-page {
+  /* Clear the sticky header without leaving a gap. */
+  padding-top: 104px;
+}
+
+.search-page-summary {
+  margin-top: 6px;
+}
+
+.search-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  margin-bottom: 26px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 18px;
+  background: var(--cream, #faf7f2);
+  max-width: 100%;
+}
+
+.search-toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  min-width: 0;
+}
+
+.search-toolbar-row .filter-label {
+  flex: 0 0 auto;
+}
+
+.search-toolbar-row .category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-toolbar-row--controls {
+  justify-content: space-between;
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+  padding-top: 14px;
+}
+
+.search-price,
+.search-sort {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-price-input input {
+  width: 92px;
+  max-width: 30vw;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.search-price-input input:focus {
+  outline: 2px solid var(--electric-2);
+  outline-offset: 1px;
+}
+
+.search-clear-all {
+  white-space: nowrap;
+}
+
+.search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 30px 0 10px;
+  font-size: 14px;
+  color: var(--ink-soft, #555);
+}
+
+.search-pagination button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.products-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ---- Responsive: no horizontal scrolling on small screens ---- */
+@media (max-width: 720px) {
+  .search-page {
+    padding-top: 92px;
+  }
+
+  .search-toolbar {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .search-toolbar-row--controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-price,
+  .search-sort {
+    width: 100%;
+  }
+
+  .search-price-input input {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 0;
+  }
+}
+/* ========================================================
+   ORDER ITEM — REVIEW ACTION
+   --------------------------------------------------------
+   A delivered order is where a customer most wants to review, so
+   the per-line review control lives inside the item row. The three
+   states (actionable / already reviewed / waiting for delivery)
+   are all small inline text so the row's layout is unchanged.
+   ======================================================== */
+.order-modal-item-review {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.order-modal-review-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f3ece0;
+  color: #6f5630;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.order-modal-reviewed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #17653b;
+}
+
+.order-modal-review-pending {
+  font-size: 12.5px;
+  color: #7a7266;
+  font-style: italic;
+}
+
+/* The "Write a review" trigger sits inline in the item row, so it is
+   rendered as a quiet text link rather than a full button. */
+.order-modal-item-review .rv-write-trigger.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #5b21b6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.order-modal-item-review .rv-write-trigger.link:hover {
+  color: #7c3aed;
+}
+
+/* ---- Public review card: editorial badge ----
+   Mirrors the verified badge's shape so the two read as siblings,
+   in a different colour so a testimonial is never mistaken for a
+   verified purchase. */
+.rv-editorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1ebff;
+  color: #5b21b6;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Locked product card in item mode ----
+   The product is already chosen when the customer arrives from My
+   Orders, so the card reads as a fixed summary rather than a
+   selection. */
+.rv-chosen-locked {
+  margin-bottom: 16px;
+  border-style: solid;
+  border-color: #5b21b6;
+  background: #f7f4ff;
 }

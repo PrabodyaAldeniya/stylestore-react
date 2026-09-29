@@ -23,6 +23,7 @@ import { rateLimit } from "express-rate-limit";
 
 import pool from "../db.js";
 import { getPublishedProductForCheckout } from "../repositories/products.js";
+import { DELIVERED_ORDER_STATUS } from "../validation/review.js";
 import { sendOrderEmail } from "../lib/orderMailer.js";
 
 const router = Router();
@@ -247,6 +248,10 @@ function sanitizeOrderNumbers(raw) {
 // the order cards need.
 function buildOrderFromRows(orderRow, itemRows) {
   const paymentMethod = PAYMENT_FROM_DB[orderRow.payment_method] || orderRow.payment_method;
+  // Reviews only open once the parcel has arrived. The customer's own order
+  // status is safe to return here because it was already proven with the
+  // order number (history) or the order number + checkout email (lookup).
+  const reviewsOpen = String(orderRow.status || "").toLowerCase() === DELIVERED_ORDER_STATUS;
   return {
     orderNumber: orderRow.order_number,
     deliveryMethod: orderRow.delivery_method,
@@ -260,9 +265,15 @@ function buildOrderFromRows(orderRow, itemRows) {
     total: Number(orderRow.total),
     status: orderRow.status,
     createdAt: orderRow.created_at,
+    // Lets the UI explain a disabled "Write a review" button.
+    reviewsOpen,
     items: itemRows.map((item) => {
       const unitPrice = Number(item.unit_price);
       const quantity = Number(item.quantity);
+      // Derived from the join below. No review id, order id or order-item id
+      // is ever sent to the browser: the UI only needs to know whether this
+      // line can be reviewed and whether it already has been.
+      const reviewed = item.review_id !== null && item.review_id !== undefined;
       return {
         productId: String(item.product_id),
         productSku: item.product_sku || null,
@@ -273,6 +284,8 @@ function buildOrderFromRows(orderRow, itemRows) {
         quantity,
         unitPrice,
         lineTotal: Math.round(unitPrice * quantity),
+        reviewed,
+        canReview: reviewsOpen && !reviewed,
       };
     }),
   };
@@ -737,11 +750,17 @@ router.get("/orders/:orderNumber", lookupLimiter, async (req, res) => {
       });
     }
 
+    // The LEFT JOIN is what tells the UI which lines can still be reviewed.
+    // Only the review's existence and state are selected — never its id,
+    // order number or the customer's email.
     const [itemRows] = await pool.execute(
-      `SELECT product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
-         FROM order_items WHERE order_id = (
-           SELECT id FROM orders WHERE order_number = ? LIMIT 1
-         )`,
+      `SELECT oi.product_id, oi.product_sku, oi.product_name, oi.product_image_path, oi.size, oi.color, oi.quantity, oi.unit_price,
+              r.id AS review_id, r.status AS review_status
+         FROM order_items oi
+         LEFT JOIN product_reviews r ON r.order_item_id = oi.id
+        WHERE oi.order_id = (
+          SELECT id FROM orders WHERE order_number = ? LIMIT 1
+        )`,
       [orderNumber]
     );
 
@@ -795,8 +814,11 @@ router.post("/orders/history", historyLimiter, async (req, res) => {
       const ids = orderRows.map((row) => row.id);
       const idPlaceholders = ids.map(() => "?").join(", ");
       const [itemRows] = await pool.execute(
-        `SELECT order_id, product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
-           FROM order_items WHERE order_id IN (${idPlaceholders})`,
+        `SELECT oi.order_id, oi.product_id, oi.product_sku, oi.product_name, oi.product_image_path, oi.size, oi.color, oi.quantity, oi.unit_price,
+                r.id AS review_id, r.status AS review_status
+           FROM order_items oi
+           LEFT JOIN product_reviews r ON r.order_item_id = oi.id
+          WHERE oi.order_id IN (${idPlaceholders})`,
         ids
       );
 
@@ -858,8 +880,11 @@ router.post("/orders/lookup", historyLimiter, async (req, res) => {
     }
 
     const [itemRows] = await pool.execute(
-      `SELECT product_id, product_sku, product_name, product_image_path, size, color, quantity, unit_price
-         FROM order_items WHERE order_id = ?`,
+      `SELECT oi.product_id, oi.product_sku, oi.product_name, oi.product_image_path, oi.size, oi.color, oi.quantity, oi.unit_price,
+              r.id AS review_id, r.status AS review_status
+         FROM order_items oi
+         LEFT JOIN product_reviews r ON r.order_item_id = oi.id
+        WHERE oi.order_id = ?`,
       [orderRows[0].id]
     );
 

@@ -2326,6 +2326,43 @@
   color: #9c2c40;
 }
 
+/* ---- New moderation states: draft / hidden / archived ----
+   Each one is visually distinct from "rejected" so the owner can tell
+   "not finished yet" from "pulled back" from "retired on purpose". */
+.adm-review-status-draft {
+  background: #ece7f6;
+  color: #4a2f86;
+}
+
+.adm-review-status-hidden {
+  background: #f3ece0;
+  color: #6f5630;
+}
+
+.adm-review-status-archived {
+  background: #e6e6e6;
+  color: #4a4a4a;
+}
+
+/* ---- Testimonial badge: the owner's own words, not a purchase ---- */
+.adm-review-testimonial {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1ebff;
+  color: #5b21b6;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Two filter rows: kind (customer / testimonial), then state ---- */
+.adm-review-source-tabs {
+  margin-bottom: 10px;
+}
+
 /* ---- Full-review preview dialog ---- */
 .adm-review-preview {
   position: relative;
@@ -2421,4 +2458,123 @@
   .adm-review-actions .adm-button {
     flex: 1 1 46%;
   }
+}
+
+/* ========================================================
+   ADMIN — WRITE A TESTIMONIAL
+   --------------------------------------------------------
+   The composer's own block sits above the review list, so it is
+   given a light lavender tint to read as "the store speaking"
+   rather than another moderation control. It reuses the existing
+   adm-* tokens, wraps on narrow screens and never forces a
+   horizontal scrollbar.
+   ======================================================== */
+.adm-testimonial-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #f7f4ff;
+  border: 1px solid #ddd2f7;
+  border-radius: 18px;
+  padding: clamp(16px, 3vw, 24px);
+  margin-bottom: 24px;
+  max-width: 100%;
+}
+
+.adm-testimonial-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.adm-testimonial-head > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.adm-testimonial-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.adm-testimonial-head p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4a2f86;
+}
+
+.adm-testimonial-head .adm-icon-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.adm-testimonial-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.adm-testimonial-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .adm-testimonial-form {
+    border-radius: 14px;
+  }
+
+  .adm-testimonial-actions .adm-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+/* ---- Testimonial product lookup ----
+   The catalogue is too large to list in one <select>, so the owner
+   types a name or SKU and the server is asked for matches. The box is a
+   row of [icon | input | spinner] that matches the admin field styling. */
+.adm-testimonial-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #d9d2e9;
+  border-radius: 10px;
+  background: #fff;
+  color: #7a7266;
+  min-height: 42px;
+}
+
+.adm-testimonial-search:focus-within {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.adm-testimonial-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  padding: 10px 0;
+}
+
+.adm-testimonial-search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* The second label sits directly under the search box, so it needs a
+   little breathing room rather than the default field gap. */
+.adm-testimonial-picker-label {
+  margin-top: 14px;
 }

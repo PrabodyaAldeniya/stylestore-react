@@ -64,6 +64,11 @@ export function fetchProductReviews(productId) {
  * Step 1 of the review form. Returns only the products inside the order that
  * the order number + email belong to, so a customer can never be offered a
  * product they did not buy.
+ *
+ * The response also says whether the order has been DELIVERED. Until it has,
+ * every item comes back with `reviewable: false` and the order cannot be
+ * reviewed at all — that rule is enforced on the server, this flag only lets
+ * the form explain it.
  */
 export function verifyOrderForReview(orderNumber, email) {
   return request("/api/reviews/verify", {
@@ -75,9 +80,14 @@ export function verifyOrderForReview(orderNumber, email) {
 /**
  * Step 2. The backend re-checks the order itself and, once every check passes,
  * stores the review as approved and publishes it immediately.
+ *
+ * Only the order number, the email and the product id are sent. The order line
+ * being reviewed is resolved on the server, so a customer cannot tamper with
+ * it and never sees an internal id.
  */
 export function submitReview(payload) {
   return request("/api/reviews", { method: "POST", body: payload });
 }
 
+/** Fired after a review is published, so open review lists can refresh. */
 export { reviewError };

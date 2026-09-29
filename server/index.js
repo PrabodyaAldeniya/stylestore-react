@@ -32,6 +32,7 @@ import reviewsRouter from "./routes/reviews.js";
 import adminAuthRouter from "./routes/admin-auth.js";
 import adminProductsRouter from "./routes/admin-products.js";
 import adminReviewsRouter from "./routes/admin-reviews.js";
+import adminOrdersRouter from "./routes/admin-orders.js";
 import { initializeDatabase } from "./db/init.js";
 import { UPLOAD_DIR } from "./lib/uploads.js";
 
@@ -113,6 +114,9 @@ app.use("/api/auth", adminAuthRouter);
 app.use("/api/admin/products", adminProductsRouter);
 // Review moderation. requireAdmin is applied inside the router.
 app.use("/api/admin/reviews", adminReviewsRouter);
+// Lets the owner mark an order delivered, which is what unlocks the
+// customer's ability to review the products they bought.
+app.use("/api/admin/orders", adminOrdersRouter);
 
 // Unknown API routes get a safe JSON 404.
 app.use("/api", (_req, res) => {

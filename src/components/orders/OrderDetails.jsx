@@ -1,20 +1,31 @@
 /* ========================================
    1. IMPORTS
-======================================== */
+   --------------------------------------------------------
+   The review buttons here are the natural place to review a
+   purchase: the customer already has the order open, and the
+   server has told us per line whether that line can still be
+   reviewed. Only `canReview` / `reviewed` are used — no review id
+   or order-item id ever reaches the browser.
+   ======================================== */
 import { useEffect, useRef } from "react";
 import { CheckCircle2, Truck, X } from "lucide-react";
 
 import { formatLKR } from "../../format";
 import { formatOrderDate, getProductImage, isHexColor } from "../../lib/orderHistoryHelpers";
 import OrderStatusBadge from "./OrderStatusBadge";
+import WriteReviewDialog from "../reviews/WriteReviewDialog";
 
 /* ========================================
    2. ORDER DETAILS MODAL
-======================================== */
+   ======================================== */
 // Accessible dialog: Escape or backdrop click closes it, focus moves to the
 // close button while open and returns to the trigger when closed.
-function OrderDetails({ order, onClose }) {
+//
+// `onReviewSubmitted` lets the parent refresh the order so the line it just
+// reviewed flips to "Reviewed" without the customer doing anything.
+function OrderDetails({ order, onClose, onReviewSubmitted }) {
   const closeButtonRef = useRef(null);
+
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
@@ -89,6 +100,14 @@ function OrderDetails({ order, onClose }) {
 
         {/* ---- Items ---- */}
         <h4 className="order-modal-subtitle">Items ({order.items.length})</h4>
+        {/* Reviews only open once the order has been delivered. This explains
+            the disabled buttons instead of hiding them. */}
+        {order.reviewsOpen === false && (
+          <p className="order-modal-review-note">
+            <Truck size={14} aria-hidden="true" /> Reviews open once this order has been
+            delivered.
+          </p>
+        )}
         <ul className="order-modal-items">
           {order.items.map((item) => {
              const image = getProductImage(item);
@@ -118,6 +137,38 @@ function OrderDetails({ order, onClose }) {
                   <span className="order-modal-item-unit">
                     {formatLKR(item.unitPrice)} each × {item.quantity}
                   </span>
+
+                  {/* ---- Per-line review action ----
+                      Three states, driven entirely by the server's own verdict
+                      on that order line. */}
+                  <div className="order-modal-item-review">
+                    {item.reviewed ? (
+                      <span className="order-modal-reviewed">
+                        <CheckCircle2 size={13} aria-hidden="true" /> Reviewed
+                      </span>
+                    ) : item.canReview ? (
+                      <WriteReviewDialog
+                        label="Write a review"
+                        variant="link"
+                        initialOrderNumber={order.orderNumber}
+                        item={{
+                          productId: Number(item.productId),
+                          productName: item.productName,
+                          variant: [item.size, item.color && !isHexColor(item.color) ? item.color : ""]
+                            .filter(Boolean)
+                            .join(" · "),
+                          imagePath: item.productImagePath,
+                        }}
+                        onReviewSubmitted={onReviewSubmitted}
+                      />
+                    ) : (
+                      <span className="order-modal-review-pending">
+                        {order.reviewsOpen === false
+                          ? "Available after delivery"
+                          : "Ready to review once eligible"}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <span className="order-modal-item-price">
