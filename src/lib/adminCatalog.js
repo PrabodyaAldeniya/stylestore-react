@@ -166,26 +166,9 @@ export function skuIsValid(value) {
   return /^[A-Z0-9][A-Z0-9-]{1,63}$/.test(String(value || "").trim().toUpperCase());
 }
 
-// The price boxes hold plain text, so a price is only ever turned into a
-// usable number here, or refused outright. `null` means "no usable price yet",
-// and that is exactly what every empty state and every guard checks for — which
-// is how the form avoids ever rendering "Rs. 0", "Rs. NaN" or a negative
-// amount for a field the owner has not filled in.
-export function parsePriceInput(value) {
-  const text = String(value ?? "").trim();
-  if (text === "") return null;
-  const number = Number(text);
-  if (!Number.isFinite(number) || number <= 0) return null;
-  return number;
-}
-
-export function calculateDiscountPercent(price, originalPrice) {
-  const current = Number(price);
-  const original = Number(originalPrice);
-  if (!Number.isFinite(current) || !Number.isFinite(original)) return 0;
-  if (original <= 0 || current <= 0 || original <= current) return 0;
-  return Math.round(((original - current) / original) * 100);
-}
+// Price parsing, the discount percentage and the Add/Edit price rules live
+// in ./pricing.js, which the storefront components read as well — so one
+// decision covers the form, the preview and the public product cards.
 
 export function stockState(stockQuantity, lowStockThreshold) {
   const stock = Number(stockQuantity) || 0;

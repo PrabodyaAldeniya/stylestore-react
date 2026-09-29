@@ -51,12 +51,10 @@ import {
 } from "../lib/adminApi";
 import {
   ADULT_SIZES,
-  calculateDiscountPercent,
   DEFAULT_LOW_STOCK,
   formatBytes,
   MAX_IMAGE_COUNT,
   MAX_IMAGE_BYTES,
-  parsePriceInput,
   productTypeOptions,
   skuIsValid,
   STATUS_OPTIONS,
@@ -66,6 +64,22 @@ import {
   suggestedSizes,
   validateImageFile,
 } from "../lib/adminCatalog";
+// ============================================
+// SECTION: Product price rules
+// --------------------------------------------------------
+// Every price decision the form makes — validation, the
+// live discount and what the preview may show — comes from
+// one shared module, so Add Product and Edit Product can
+// never apply different rules to the same numbers. The API
+// enforces the same rules server-side.
+// ============================================
+import {
+  calculateDiscountPercent,
+  hasRealDiscount,
+  originalPriceForDisplay,
+  parsePriceInput,
+  validatePrices,
+} from "../lib/pricing";
 import {
   canonicalColourName,
   MAX_COLOURS,
@@ -185,34 +199,13 @@ function validateForm(form) {
   }
 
   // ---- Prices --------------------------------------------------------
-  // The selling price is required and has to be a real number above zero. A
-  // blank box and a broken number get different messages so the owner is told
-  // which of the two it is.
-  const priceText = form.price.trim();
-  const price = Number(priceText);
-  if (priceText === "") {
-    errors.price = "Enter the current selling price.";
-  } else if (!Number.isFinite(price) || price <= 0) {
-    errors.price = "Enter a valid price greater than zero.";
-  } else if (price > MAX_PRICE) {
-    errors.price = "That price is too large. Use a number under 100,000,000.";
-  }
-
-  // The original price is optional, but once it is typed it must be a real
-  // number that is not negative — and it only means something when it is higher
-  // than the selling price, because that gap is what the discount is worked out
-  // from. Anything else would show a discount that is not real.
-  if (form.originalPrice.trim() !== "") {
-    const original = Number(form.originalPrice);
-    if (!Number.isFinite(original) || original <= 0) {
-      errors.originalPrice = "Enter a valid price greater than zero.";
-    } else if (Number.isFinite(price) && price > 0 && original <= price) {
-      errors.originalPrice =
-        "Original price must be higher than the selling price to create a discount.";
-    } else if (original > MAX_PRICE) {
-      errors.originalPrice = "That price is too large. Use a number under 100,000,000.";
-    }
-  }
+  // The selling price is required and has to be a real number above zero. The
+  // original price is optional and may be the SAME figure — equal prices just
+  // mean the product is not reduced. Only an original price LOWER than the
+  // selling price is refused, and only a genuinely higher one is a discount.
+  // The whole pair of rules lives in ../lib/pricing so Add and Edit agree, and
+  // so the same numbers are judged here, in the preview and by the API.
+  Object.assign(errors, validatePrices(form.price, form.originalPrice));
 
   if (
     form.stockQuantity.trim() === "" ||
