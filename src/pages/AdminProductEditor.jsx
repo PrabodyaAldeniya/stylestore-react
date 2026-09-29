@@ -75,9 +75,9 @@ import {
 // ============================================
 import {
   calculateDiscountPercent,
-  hasRealDiscount,
   originalPriceForDisplay,
   parsePriceInput,
+  toPriceNumber,
   validatePrices,
 } from "../lib/pricing";
 import {
@@ -107,7 +107,6 @@ import ImageManager from "../components/admin/ImageManager";
 import ProductPreviewDialog from "../components/admin/ProductPreviewDialog";
 import SizeTypeSelector from "../components/admin/SizeTypeSelector";
 
-const MAX_PRICE = 99_999_999;
 
 const EMPTY_FORM = {
   name: "",
@@ -259,8 +258,13 @@ function buildFormData({
   data.set("sizes", JSON.stringify(applySizeMode(form.sizeMode, form.sizes)));
   data.set("colours", JSON.stringify(form.colours));
   data.set("isNew", String(form.isNew));
-  data.set("isFeatured", String(form.isFeatured));
-  data.set("isSale", String(form.isSale));
+  const sellingNum = toPriceNumber(form.price);
+  const originalNum = toPriceNumber(form.originalPrice);
+  const isSaleValue =
+    originalNum !== null && sellingNum !== null && originalNum <= sellingNum
+      ? false
+      : form.isSale || (originalNum !== null && sellingNum !== null && originalNum > sellingNum);
+  data.set("isSale", String(isSaleValue));
   data.set("status", status);
   data.set("rating", form.rating);
   data.set("ratingCount", form.ratingCount);
@@ -330,12 +334,30 @@ export default function AdminProductEditor() {
   const clientErrors = useMemo(() => validateForm(form), [form]);
 
   const fieldErrors = useMemo(() => {
-    const merged = { ...clientErrors, ...serverErrors };
+    const priceErrors = validatePrices(form.price, form.originalPrice);
+    const activeServerErrors = { ...serverErrors };
+
+    if (!priceErrors.price) {
+      delete activeServerErrors.price;
+    }
+    if (!priceErrors.originalPrice) {
+      delete activeServerErrors.originalPrice;
+    }
+
+    const merged = { ...activeServerErrors, ...clientErrors };
+
+    if (!priceErrors.price) {
+      delete merged.price;
+    }
+    if (!priceErrors.originalPrice) {
+      delete merged.originalPrice;
+    }
+
     if (showAllErrors) return merged;
     return Object.fromEntries(
       Object.entries(merged).filter(([key]) => touched[key])
     );
-  }, [clientErrors, serverErrors, showAllErrors, touched]);
+  }, [clientErrors, form.originalPrice, form.price, serverErrors, showAllErrors, touched]);
 
   // ---- Load the product being edited -------------------------------
   // New-product screens mount with EMPTY_FORM already in state, so this
@@ -457,7 +479,7 @@ export default function AdminProductEditor() {
       shortDescription: form.shortDescription.trim(),
       description: form.description.trim(),
       price: sellingPrice,
-      originalPrice: listPrice,
+      originalPrice: originalPriceForDisplay(sellingPrice, listPrice),
       discountPercent,
       stockQuantity: Number(form.stockQuantity) || 0,
       lowStockThreshold: Number(form.lowStockThreshold) || 0,
@@ -468,7 +490,10 @@ export default function AdminProductEditor() {
       colours: form.colours,
       isNew: form.isNew,
       isFeatured: form.isFeatured,
-      isSale: form.isSale || discountPercent > 0,
+      isSale:
+        listPrice !== null && sellingPrice !== null && listPrice <= sellingPrice
+          ? false
+          : form.isSale || discountPercent > 0,
       status: form.status,
       image: mainNew?.url || mainExisting?.url || "",
     };
@@ -486,6 +511,29 @@ export default function AdminProductEditor() {
   const update = (patch) => {
     setForm((current) => ({ ...current, ...patch }));
     setDirty(true);
+    setServerErrors((current) => {
+      const keys = Object.keys(patch);
+      const shouldClearPrices = keys.includes("price") || keys.includes("originalPrice");
+      let changed = false;
+      const next = { ...current };
+      for (const key of keys) {
+        if (key in next) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      if (shouldClearPrices) {
+        if ("price" in next) {
+          delete next.price;
+          changed = true;
+        }
+        if ("originalPrice" in next) {
+          delete next.originalPrice;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
   };
 
   // Remembering that a field has been visited is what turns its hidden error

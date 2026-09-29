@@ -1,4 +1,5 @@
 import { MAIN_CATEGORIES } from "../lib/productTaxonomy.js";
+import { ORIGINAL_PRICE_LOWER_MESSAGE } from "../lib/pricing.js";
 // ============================================
 // SECTION: Product size modes
 // --------------------------------------------------------
@@ -251,26 +252,25 @@ export function validateProduct(body = {}, { partial = false } = {}) {
   }
 
   // The original price is optional. Once it is sent it has to be a real number
-  // that is not negative, and it only means something when it is higher than
-  // the selling price, because that gap is what the discount is worked out
-  // from — anything else would store a discount that is not real.
+  // that is not negative. Equal prices are explicitly allowed and represent a product
+  // with no discount. Only an original price lower than the selling price is rejected.
   const originalPrice = isBlank(body.originalPrice) ? null : toNumber(body.originalPrice);
-  if (
-    body.originalPrice !== undefined &&
-    originalPrice !== null &&
-    (originalPrice <= 0 || originalPrice > MAX_PRICE)
-  ) {
-    errors.originalPrice = fieldError("Enter a valid price greater than zero.");
-  } else if (
-    originalPrice !== null &&
-    value.price !== undefined &&
-    originalPrice <= value.price
-  ) {
-    errors.originalPrice = fieldError(
-      "Original price must be higher than the selling price to create a discount."
-    );
+  if (body.originalPrice !== undefined && originalPrice !== null) {
+    if (originalPrice < 0) {
+      errors.originalPrice = fieldError("Original price cannot be negative.");
+    } else if (originalPrice === 0) {
+      errors.originalPrice = fieldError("Enter a valid price greater than zero.");
+    } else if (originalPrice > MAX_PRICE) {
+      errors.originalPrice = fieldError(
+        "That price is too large. Use a number under 100,000,000."
+      );
+    } else if (value.price !== undefined && originalPrice < value.price) {
+      errors.originalPrice = fieldError(ORIGINAL_PRICE_LOWER_MESSAGE);
+    } else {
+      value.originalPrice = Math.round(originalPrice * 100) / 100;
+    }
   } else if (body.originalPrice !== undefined) {
-    value.originalPrice = originalPrice;
+    value.originalPrice = null;
   }
 
   const stockQuantity = toInteger(body.stockQuantity ?? body.stock);

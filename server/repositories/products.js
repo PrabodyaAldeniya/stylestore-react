@@ -396,7 +396,8 @@ export async function createProduct(data, connection = pool) {
         Number(data.lowStockThreshold ?? DEFAULT_LOW_STOCK),
         data.isNew ? 1 : 0,
         data.isFeatured ? 1 : 0,
-        data.isSale || (data.originalPrice && data.originalPrice > data.price)
+        (data.originalPrice && Number(data.originalPrice) > Number(data.price)) ||
+        (data.isSale && (!data.originalPrice || Number(data.originalPrice) > Number(data.price)))
           ? 1
           : 0,
         data.rating,
@@ -462,7 +463,8 @@ export async function updateProduct(id, data, connection = pool) {
         Number(data.lowStockThreshold ?? DEFAULT_LOW_STOCK),
         data.isNew ? 1 : 0,
         data.isFeatured ? 1 : 0,
-        data.isSale || (data.originalPrice && data.originalPrice > data.price)
+        (data.originalPrice && Number(data.originalPrice) > Number(data.price)) ||
+        (data.isSale && (!data.originalPrice || Number(data.originalPrice) > Number(data.price)))
           ? 1
           : 0,
         data.rating,

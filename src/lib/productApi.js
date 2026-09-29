@@ -22,6 +22,7 @@
    as `?` placeholders in parameterised SQL.
    ======================================================== */
 import { API_BASE } from "./checkout";
+import { originalPriceForDisplay } from "./pricing";
 
 /* ========================================================
    1. ASSET AND PRODUCT SHAPE HELPERS
@@ -41,7 +42,7 @@ export function normalizeProduct(product) {
     ...product,
     image,
     images: images.map((item) => ({ ...item, url: assetUrl(item.path || item.url) })),
-    oldPrice: product.originalPrice ?? null,
+    oldPrice: originalPriceForDisplay(product.price, product.originalPrice),
     colors: colours.map((colour) => colour.hex).filter(Boolean),
     colorOptions: colours,
     featured: Boolean(product.isFeatured),

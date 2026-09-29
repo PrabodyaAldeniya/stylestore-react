@@ -129,7 +129,7 @@ export function validatePrices(priceValue, originalPriceValue) {
   const originalText = String(originalPriceValue ?? "").trim();
   const original = toPriceNumber(originalText);
   if (originalText !== "") {
-    if (original === null) {
+    if (original === null || original === 0) {
       errors.originalPrice = "Enter a valid price greater than zero.";
     } else if (original < 0) {
       errors.originalPrice = "Original price cannot be negative.";
