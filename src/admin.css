@@ -1017,6 +1017,24 @@
 }
 
 /* ---- Price preview ---- */
+/* The price boxes carry a written prompt instead of an example figure, so the
+   prompt is dimmed like every other placeholder and the native stepper is
+   hidden so it cannot sit on top of the words. */
+.admin-form input.adm-price-input::placeholder {
+  color: var(--sand-mid);
+}
+
+.admin-form input.adm-price-input::-webkit-outer-spin-button,
+.admin-form input.adm-price-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.admin-form input.adm-price-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .adm-price-preview {
   display: flex;
   flex-wrap: wrap;
@@ -1049,6 +1067,17 @@
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.5rem, 3vw, 2rem);
   line-height: 1.1;
+}
+
+/* Shown in place of a price that has not been entered yet, so an empty field
+   reads as "waiting for you" rather than as a price of zero. */
+.adm-price-now strong.adm-price-pending,
+.adm-preview-price .price.adm-price-pending {
+  color: #8b8091;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-style: italic;
+  font-weight: 600;
 }
 
 .adm-price-was s {

@@ -97,6 +97,12 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+// A field that was never filled in, as opposed to one holding something that
+// is not a usable number. The two cases need different messages.
+function isBlank(value) {
+  return value === undefined || value === null || String(value).trim() === "";
+}
+
 function toInteger(value) {
   const number = toNumber(value);
   return number === null ? null : Math.trunc(number);
@@ -226,31 +232,43 @@ export function validateProduct(body = {}, { partial = false } = {}) {
     value.shortDescription = shortDescription || value.description?.slice(0, 160) || "";
   }
 
+  // Prices are validated and stored as numbers, never as a formatted amount
+  // such as "Rs. 7,800". A missing price and a broken one are reported
+  // differently so the owner is told which of the two it is.
   const price = toNumber(body.price);
   if (required("price")) {
-    if (price === null || price <= 0 || price > MAX_PRICE) {
-      errors.price = fieldError("Enter a price greater than zero.");
+    if (isBlank(body.price)) {
+      errors.price = fieldError("Enter the current selling price.");
+    } else if (price === null || price <= 0) {
+      errors.price = fieldError("Enter a valid price greater than zero.");
+    } else if (price > MAX_PRICE) {
+      errors.price = fieldError(
+        "That price is too large. Use a number under 100,000,000."
+      );
     } else {
       value.price = Math.round(price * 100) / 100;
     }
   }
 
-  const originalPrice =
-    body.originalPrice === undefined || body.originalPrice === ""
-      ? null
-      : toNumber(body.originalPrice);
+  // The original price is optional. Once it is sent it has to be a real number
+  // that is not negative, and it only means something when it is higher than
+  // the selling price, because that gap is what the discount is worked out
+  // from — anything else would store a discount that is not real.
+  const originalPrice = isBlank(body.originalPrice) ? null : toNumber(body.originalPrice);
   if (
     body.originalPrice !== undefined &&
     originalPrice !== null &&
     (originalPrice <= 0 || originalPrice > MAX_PRICE)
   ) {
-    errors.originalPrice = fieldError("Enter a valid original price or leave it blank.");
+    errors.originalPrice = fieldError("Enter a valid price greater than zero.");
   } else if (
     originalPrice !== null &&
     value.price !== undefined &&
-    originalPrice < value.price
+    originalPrice <= value.price
   ) {
-    errors.originalPrice = fieldError("Original price must be at least the current price.");
+    errors.originalPrice = fieldError(
+      "Original price must be higher than the selling price to create a discount."
+    );
   } else if (body.originalPrice !== undefined) {
     value.originalPrice = originalPrice;
   }

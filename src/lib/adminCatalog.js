@@ -166,6 +166,19 @@ export function skuIsValid(value) {
   return /^[A-Z0-9][A-Z0-9-]{1,63}$/.test(String(value || "").trim().toUpperCase());
 }
 
+// The price boxes hold plain text, so a price is only ever turned into a
+// usable number here, or refused outright. `null` means "no usable price yet",
+// and that is exactly what every empty state and every guard checks for — which
+// is how the form avoids ever rendering "Rs. 0", "Rs. NaN" or a negative
+// amount for a field the owner has not filled in.
+export function parsePriceInput(value) {
+  const text = String(value ?? "").trim();
+  if (text === "") return null;
+  const number = Number(text);
+  if (!Number.isFinite(number) || number <= 0) return null;
+  return number;
+}
+
 export function calculateDiscountPercent(price, originalPrice) {
   const current = Number(price);
   const original = Number(originalPrice);

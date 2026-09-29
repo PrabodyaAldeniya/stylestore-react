@@ -35,6 +35,10 @@ function ProductPreviewDialog({ product, onClose }) {
 
   const state = stockState(product.stockQuantity, product.lowStockThreshold);
   const hasDiscount = Number(product.discountPercent) > 0;
+  // A product that has not been priced yet says so, rather than showing the
+  // customer a price of zero that was never entered.
+  const sellingPrice = Number(product.price);
+  const hasSellingPrice = Number.isFinite(sellingPrice) && sellingPrice > 0;
 
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
@@ -61,7 +65,11 @@ function ProductPreviewDialog({ product, onClose }) {
           <h2>{product.name || "Untitled product"}</h2>
 
           <div className="adm-preview-price">
-            <span className="price">{formatLKR(product.price || 0)}</span>
+            {hasSellingPrice ? (
+              <span className="price">{formatLKR(sellingPrice)}</span>
+            ) : (
+              <span className="price adm-price-pending">Enter a selling price</span>
+            )}
             {hasDiscount && (
               <>
                 <span className="old-price">{formatLKR(product.originalPrice)}</span>

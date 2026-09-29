@@ -56,6 +56,7 @@ import {
   formatBytes,
   MAX_IMAGE_COUNT,
   MAX_IMAGE_BYTES,
+  parsePriceInput,
   productTypeOptions,
   skuIsValid,
   STATUS_OPTIONS,
@@ -103,6 +104,9 @@ const EMPTY_FORM = {
   customType: "",
   shortDescription: "",
   description: "",
+  // A new product never starts with a price. It is deliberately "" rather than
+  // 0 or an example amount, so the owner always types the real figure and the
+  // form can never look like it already holds a saved price.
   price: "",
   originalPrice: "",
   stockQuantity: "10",
@@ -180,19 +184,33 @@ function validateForm(form) {
     errors.description = "Enter a full description of at least 5 characters.";
   }
 
-  const price = Number(form.price);
-  if (form.price.trim() === "" || !Number.isFinite(price) || price <= 0) {
-    errors.price = "Enter a selling price greater than zero.";
+  // ---- Prices --------------------------------------------------------
+  // The selling price is required and has to be a real number above zero. A
+  // blank box and a broken number get different messages so the owner is told
+  // which of the two it is.
+  const priceText = form.price.trim();
+  const price = Number(priceText);
+  if (priceText === "") {
+    errors.price = "Enter the current selling price.";
+  } else if (!Number.isFinite(price) || price <= 0) {
+    errors.price = "Enter a valid price greater than zero.";
   } else if (price > MAX_PRICE) {
     errors.price = "That price is too large. Use a number under 100,000,000.";
   }
 
+  // The original price is optional, but once it is typed it must be a real
+  // number that is not negative — and it only means something when it is higher
+  // than the selling price, because that gap is what the discount is worked out
+  // from. Anything else would show a discount that is not real.
   if (form.originalPrice.trim() !== "") {
     const original = Number(form.originalPrice);
     if (!Number.isFinite(original) || original <= 0) {
-      errors.originalPrice = "Enter a valid original price, or leave it blank.";
-    } else if (Number.isFinite(price) && price > 0 && original < price) {
-      errors.originalPrice = "The original price cannot be lower than the selling price.";
+      errors.originalPrice = "Enter a valid price greater than zero.";
+    } else if (Number.isFinite(price) && price > 0 && original <= price) {
+      errors.originalPrice =
+        "Original price must be higher than the selling price to create a discount.";
+    } else if (original > MAX_PRICE) {
+      errors.originalPrice = "That price is too large. Use a number under 100,000,000.";
     }
   }
 
@@ -237,8 +255,8 @@ function buildFormData({
   data.set("productType", resolveProductType(form));
   data.set("shortDescription", form.shortDescription.trim());
   data.set("description", form.description.trim());
-  data.set("price", form.price);
-  data.set("originalPrice", form.originalPrice);
+  data.set("price", priceForPayload(form.price));
+  data.set("originalPrice", priceForPayload(form.originalPrice));
   data.set("stockQuantity", form.stockQuantity);
   data.set("lowStockThreshold", form.lowStockThreshold);
   // The mode is sent alongside the sizes and the list is re-normalised from it,
@@ -272,6 +290,17 @@ function firstErrorOf(errors) {
   return Object.keys(errors)[0] || null;
 }
 
+// The form keeps prices as text while they are being edited. This turns one
+// back into the bare number the API expects, or into an empty string when the
+// owner has not entered anything — so neither the placeholder text nor a
+// formatted "Rs. 7,800" can ever be written to the API or to MySQL.
+function priceForPayload(value) {
+  const text = String(value ?? "").trim();
+  const number = Number(text);
+  if (text === "" || !Number.isFinite(number) || number <= 0) return "";
+  return String(number);
+}
+
 export default function AdminProductEditor() {
   const navigate = useNavigate();
   // The route is /admin/products/:productId/edit, so the id has to come from
@@ -291,12 +320,29 @@ export default function AdminProductEditor() {
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [primary, setPrimary] = useState(null);
   const [customSize, setCustomSize] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [serverErrors, setServerErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [showAllErrors, setShowAllErrors] = useState(false);
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // ---- Which errors the owner can actually see -----------------------
+  // A freshly opened Add Product page must be clean, so a field's error only
+  // appears once that field has been visited, or once the owner has asked to
+  // Preview / Create / Publish the whole form. Messages the API returned are
+  // always shown, because they only exist after a save was already tried.
+  const clientErrors = useMemo(() => validateForm(form), [form]);
+
+  const fieldErrors = useMemo(() => {
+    const merged = { ...clientErrors, ...serverErrors };
+    if (showAllErrors) return merged;
+    return Object.fromEntries(
+      Object.entries(merged).filter(([key]) => touched[key])
+    );
+  }, [clientErrors, serverErrors, showAllErrors, touched]);
 
   // ---- Load the product being edited -------------------------------
   // New-product screens mount with EMPTY_FORM already in state, so this
@@ -366,9 +412,19 @@ export default function AdminProductEditor() {
 
   const sizeOptions = useMemo(() => suggestedSizes(form.category), [form.category]);
 
+  // ---- Prices --------------------------------------------------------
+  // Both boxes are only treated as a price once they hold a real number above
+  // zero. Anything else stays null, which is what the empty states below check
+  // for, so the preview can never show "Rs. 0", "Rs. NaN" or a negative amount.
+  const sellingPrice = useMemo(() => parsePriceInput(form.price), [form.price]);
+  const listPrice = useMemo(() => parsePriceInput(form.originalPrice), [form.originalPrice]);
+
+  // calculateDiscountPercent ignores anything that is not a real pair of prices
+  // with the original one above the selling one, so the preview, the preview
+  // dialog and the saved product can never disagree about the discount.
   const discountPercent = useMemo(
-    () => calculateDiscountPercent(form.price, form.originalPrice),
-    [form.price, form.originalPrice]
+    () => calculateDiscountPercent(sellingPrice, listPrice),
+    [sellingPrice, listPrice]
   );
 
   const state = useMemo(
@@ -398,8 +454,8 @@ export default function AdminProductEditor() {
       primary?.kind === "existing"
         ? keptExisting.find((image) => image.id === primary.id)
         : keptExisting.find((image) => image.isPrimary) || keptExisting[0];
-    const price = Number(form.price) || 0;
-    const originalPrice = form.originalPrice.trim() === "" ? null : Number(form.originalPrice);
+    // The preview shows the same guarded numbers as the price panel, so a
+    // half-typed or invalid price can never turn into a "Rs. 0" in the dialog.
     return {
       name: form.name.trim() || "Untitled product",
       sku: form.sku.trim() || suggestSku(form.category, form.name),
@@ -407,8 +463,8 @@ export default function AdminProductEditor() {
       productType: resolveProductType(form),
       shortDescription: form.shortDescription.trim(),
       description: form.description.trim(),
-      price,
-      originalPrice,
+      price: sellingPrice,
+      originalPrice: listPrice,
       discountPercent,
       stockQuantity: Number(form.stockQuantity) || 0,
       lowStockThreshold: Number(form.lowStockThreshold) || 0,
@@ -427,14 +483,22 @@ export default function AdminProductEditor() {
     discountPercent,
     form,
     keptExisting,
+    listPrice,
     newImages,
     primary,
+    sellingPrice,
   ]);
 
   // ---- Helpers -------------------------------------------------------
   const update = (patch) => {
     setForm((current) => ({ ...current, ...patch }));
     setDirty(true);
+  };
+
+  // Remembering that a field has been visited is what turns its hidden error
+  // into a visible one, so a new product form never nags before it is used.
+  const markTouched = (key) => {
+    setTouched((current) => (current[key] ? current : { ...current, [key]: true }));
   };
 
   const flash = (type, message) => {
@@ -576,17 +640,12 @@ export default function AdminProductEditor() {
    * lives in SizeTypeSelector, so this only has to apply the change.
    */
   const changeSizeMode = (mode) => {
+    // A size list that is no longer valid is no longer the first thing to fix,
+    // and the size error is worked out from the form on every render, so the
+    // new mode simply stops raising it without any manual clearing.
     update({
       sizeMode: mode,
       sizes: applySizeMode(mode, form.sizes),
-    });
-    // A size list that is no longer valid is no longer the first thing to fix,
-    // so clear only the size error and leave every other field alone.
-    setFieldErrors((current) => {
-      if (!current.sizes) return current;
-      const next = { ...current };
-      delete next.sizes;
-      return next;
     });
   };
 
@@ -653,12 +712,46 @@ export default function AdminProductEditor() {
     }
   };
 
+  // Puts the Add Product form back to a completely empty state. Prices in
+  // particular return to "", because a form that still looked filled in would
+  // be the easiest way to publish the wrong price by accident.
+  const resetCreateForm = () => {
+    for (const image of newImages) releaseUrl(image.url);
+    objectUrlsRef.current.clear();
+    setForm(EMPTY_FORM);
+    setNewImages([]);
+    setRemovedImageIds([]);
+    setPrimary(null);
+    setCustomSize("");
+    setServerErrors({});
+    setTouched({});
+    setShowAllErrors(false);
+    setFormError("");
+    setPreviewOpen(false);
+    setDirty(false);
+  };
+
+  // Previewing counts as asking to see the result of the form, so anything that
+  // is still wrong is pointed out instead of being quietly previewed.
+  const openPreview = () => {
+    setShowAllErrors(true);
+    setServerErrors({});
+    setFormError("");
+    if (Object.keys(validateForm(form)).length) {
+      setNotice(null);
+      flash("error", "Please fix the highlighted fields before previewing.");
+      return;
+    }
+    setPreviewOpen(true);
+  };
+
   // ---- Save ----------------------------------------------------------
   const save = async (statusOverride) => {
     if (saving) return;
     const nextStatus = statusOverride || form.status;
     const errors = validateForm(form);
-    setFieldErrors(errors);
+    setShowAllErrors(true);
+    setServerErrors({});
     setFormError("");
     if (Object.keys(errors).length) {
       setNotice(null);
@@ -682,12 +775,7 @@ export default function AdminProductEditor() {
         ? await updateAdminProduct(productId, data)
         : await createAdminProduct(data);
 
-      for (const image of newImages) releaseUrl(image.url);
-      setNewImages([]);
-      setRemovedImageIds([]);
-      setPrimary(null);
       setDirty(false);
-      setForm((current) => ({ ...current, status: nextStatus }));
       setProduct(result.product);
 
       const label = STATUS_OPTIONS.find((option) => option.value === nextStatus)?.label;
@@ -697,9 +785,18 @@ export default function AdminProductEditor() {
           : `“${result.product.name}” saved as ${label?.toLowerCase() || nextStatus}.`;
 
       if (editing) {
+        // An edit keeps everything the product already had, prices included.
+        for (const image of newImages) releaseUrl(image.url);
+        setNewImages([]);
+        setRemovedImageIds([]);
+        setPrimary(null);
+        setForm((current) => ({ ...current, status: nextStatus }));
         flash("success", message);
         return;
       }
+      // A new product always starts again from a blank form, so the next
+      // product can never inherit the prices — or anything else — from this one.
+      resetCreateForm();
       navigate("/admin/products", { replace: true, state: { notice: { type: "success", message } } });
     } catch (error) {
       if (error.code === "AUTH_REQUIRED") {
@@ -708,7 +805,7 @@ export default function AdminProductEditor() {
       }
       setFormError(error.message || "The product could not be saved.");
       if (error.fields) {
-        setFieldErrors(
+        setServerErrors(
           Object.fromEntries(
             Object.entries(error.fields).map(([key, value]) => [key, value.message])
           )
@@ -957,6 +1054,7 @@ export default function AdminProductEditor() {
                 onChange={(event) =>
                   update({ sku: event.target.value.toUpperCase() })
                 }
+                onBlur={() => markTouched("sku")}
                 aria-invalid={Boolean(fieldErrors.sku)}
                 placeholder="SS-WOM-DR01"
               />
@@ -1034,6 +1132,7 @@ export default function AdminProductEditor() {
                   value={form.customType}
                   maxLength={80}
                   onChange={(event) => update({ customType: event.target.value })}
+                  onBlur={() => markTouched("productType")}
                   aria-invalid={Boolean(fieldErrors.productType)}
                   placeholder="Anarkali Suits"
                 />
@@ -1054,6 +1153,7 @@ export default function AdminProductEditor() {
                 value={form.shortDescription}
                 maxLength={500}
                 onChange={(event) => update({ shortDescription: event.target.value })}
+                onBlur={() => markTouched("shortDescription")}
                 aria-invalid={Boolean(fieldErrors.shortDescription)}
                 placeholder="A breezy midi dress in a soft, colour-blocked knit."
               />
@@ -1073,6 +1173,7 @@ export default function AdminProductEditor() {
                 rows={5}
                 value={form.description}
                 onChange={(event) => update({ description: event.target.value })}
+                onBlur={() => markTouched("description")}
                 aria-invalid={Boolean(fieldErrors.description)}
                 placeholder="Lightweight viscose blend. Relaxed fit. Machine wash cold, dry in shade."
               />
@@ -1088,6 +1189,12 @@ export default function AdminProductEditor() {
           icon={<Sparkles size={17} aria-hidden />}
         >
           <div className="adm-grid">
+            {/* Both price boxes always open empty on Add Product and show only a
+                written prompt, never a number. An example figure sitting in a
+                price box is indistinguishable from a real saved price, which is
+                exactly how a wrong price reaches the shop. type="number" keeps
+                the entry numeric, so the placeholder can never be typed into
+                state, the API or MySQL. */}
             <AdminField
               id="adm-price"
               label="Current selling price"
@@ -1099,13 +1206,16 @@ export default function AdminProductEditor() {
               <input
                 id="adm-price"
                 type="number"
+                className="adm-price-input"
                 inputMode="decimal"
                 min="0"
                 step="1"
                 value={form.price}
                 onChange={(event) => update({ price: event.target.value })}
+                onBlur={() => markTouched("price")}
                 aria-invalid={Boolean(fieldErrors.price)}
-                placeholder="7800"
+                aria-describedby={fieldErrors.price ? "adm-price-error" : "adm-price-hint"}
+                placeholder="Enter current selling price"
               />
             </AdminField>
 
@@ -1119,34 +1229,45 @@ export default function AdminProductEditor() {
               <input
                 id="adm-original-price"
                 type="number"
+                className="adm-price-input"
                 inputMode="decimal"
                 min="0"
                 step="1"
                 value={form.originalPrice}
                 onChange={(event) => update({ originalPrice: event.target.value })}
+                onBlur={() => markTouched("originalPrice")}
                 aria-invalid={Boolean(fieldErrors.originalPrice)}
-                placeholder="9200"
+                aria-describedby={
+                  fieldErrors.originalPrice ? "adm-original-price-error" : "adm-original-price-hint"
+                }
+                placeholder="Enter original price (optional)"
               />
             </AdminField>
           </div>
 
+          {/* A price that has not been entered is described, not guessed. The
+              formatted amount and the discount only appear once both figures
+              are real numbers and the original one is genuinely higher, so
+              "Rs. 0", "Rs. NaN" and a made-up discount can never be shown. */}
           <div className="adm-price-preview">
             <div className="adm-price-now">
               <span className="adm-price-label">Customers pay</span>
-              <strong>{formatLKR(Number(form.price) || 0)}</strong>
+              {sellingPrice === null ? (
+                <strong className="adm-price-pending">Enter a selling price</strong>
+              ) : (
+                <strong>{formatLKR(sellingPrice)}</strong>
+              )}
             </div>
             {discountPercent > 0 && (
               <>
                 <div className="adm-price-was">
                   <span className="adm-price-label">Was</span>
-                  <s>{formatLKR(Number(form.originalPrice) || 0)}</s>
+                  <s>{formatLKR(listPrice)}</s>
                 </div>
                 <div className="adm-price-off">
                   <span className="adm-price-label">Discount</span>
                   <strong>{discountPercent}% off</strong>
-                  <small>
-                    You keep {formatLKR((Number(form.originalPrice) || 0) - (Number(form.price) || 0))}
-                  </small>
+                  <small>You save {formatLKR(listPrice - sellingPrice)}</small>
                 </div>
               </>
             )}
@@ -1332,6 +1453,7 @@ export default function AdminProductEditor() {
                         : String(Math.max(0, Math.trunc(Number(raw) || 0))),
                   });
                 }}
+                onBlur={() => markTouched("stockQuantity")}
                 aria-invalid={Boolean(fieldErrors.stockQuantity)}
               />
             </AdminField>
@@ -1359,6 +1481,7 @@ export default function AdminProductEditor() {
                         : String(Math.max(0, Math.trunc(Number(raw) || 0))),
                   });
                 }}
+                onBlur={() => markTouched("lowStockThreshold")}
                 aria-invalid={Boolean(fieldErrors.lowStockThreshold)}
               />
             </AdminField>
@@ -1489,7 +1612,7 @@ export default function AdminProductEditor() {
             <button
               type="button"
               className="adm-button adm-button-ghost"
-              onClick={() => setPreviewOpen(true)}
+              onClick={openPreview}
               disabled={saving}
             >
               <Eye size={16} aria-hidden /> Preview Product
