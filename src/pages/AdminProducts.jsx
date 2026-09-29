@@ -90,7 +90,9 @@ export default function AdminProducts() {
   const [total, setTotal] = useState(0);
   // How many products are waiting in the Trash; drives the header badge.
   const [trashCount, setTrashCount] = useState(0);
-  // How many customer reviews are waiting for approval; drives the header badge.
+  // How many customer reviews still need attention (pending moderation);
+  // drives the header badge. Verified reviews publish automatically, so this
+  // is normally 0 and only rises for anything unusual.
   const [pendingReviews, setPendingReviews] = useState(0);
   const [listStatus, setListStatus] = useState("loading");
   const [listError, setListError] = useState("");
@@ -153,7 +155,7 @@ export default function AdminProducts() {
     };
   }, []);
 
-  // Refreshed whenever the product list reloads, so approving a review on the
+  // Refreshed whenever the product list reloads, so a moderation change on the
   // Reviews screen is reflected in this badge as soon as you come back.
   useEffect(() => {
     let cancelled = false;
@@ -277,7 +279,7 @@ export default function AdminProducts() {
             type="button"
             className="adm-button adm-button-ghost"
             onClick={() => navigate("/admin/reviews")}
-            title="Read, approve, reject or delete customer reviews"
+            title="Read, hide, reject, restore or delete customer reviews"
           >
             <MessageSquare size={16} aria-hidden /> Reviews
             {pendingReviews > 0 && (
@@ -285,8 +287,8 @@ export default function AdminProducts() {
             )}
             <span className="adm-sr-only">
               {pendingReviews > 0
-                ? `${pendingReviews} review${pendingReviews === 1 ? "" : "s"} waiting for approval`
-                : "No reviews waiting for approval"}
+                ? `${pendingReviews} review${pendingReviews === 1 ? "" : "s"} need attention`
+                : "No reviews need attention"}
             </span>
           </button>
           <button

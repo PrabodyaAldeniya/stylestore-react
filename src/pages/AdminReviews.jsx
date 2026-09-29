@@ -1,13 +1,15 @@
 /* ========================================================
    ADMIN REVIEWS
    --------------------------------------------------------
-   The moderation queue for the customer review system.
+   The moderation screen for the customer review system.
 
-   The owner can:
-     · switch between Pending / Approved / Rejected
+   Verified reviews are published automatically, so this page is
+   for moderation after the fact. The owner can:
+     · switch between Approved / Rejected / Pending / All
      · search by customer name, email, order number or product
      · read the full review text before deciding
-     · approve, reject, or delete something inappropriate
+     · HIDE a published review, REJECT a pending one,
+       RESTORE a hidden one, or DELETE it safely
      · see at a glance whether the purchase was actually
        verified against the orders table
 
@@ -15,18 +17,20 @@
    order number. Every call goes through the protected admin API,
    and an expired session redirects to the login page.
 
-   Approving, rejecting or deleting also re-syncs the product's
-   displayed average rating on the server, so the shop numbers
-   follow the decisions made here.
+   Hiding, rejecting, restoring or deleting also re-syncs the
+   product's displayed average rating on the server, so the shop
+   numbers follow the decisions made here.
    ======================================================== */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArchiveRestore,
   ArrowLeft,
   BadgeCheck,
   Ban,
   Check,
   Eye,
+  EyeOff,
   Info,
   Loader2,
   RefreshCw,
@@ -45,10 +49,11 @@ import {
 } from "../lib/adminApi";
 import "../admin.css";
 
+// Published first, because verified reviews are published automatically.
 const STATUS_TABS = [
+  { value: "approved", label: "Published" },
+  { value: "rejected", label: "Hidden" },
   { value: "pending", label: "Pending" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
   { value: "all", label: "All" },
 ];
 
@@ -92,7 +97,9 @@ function StatusBadge({ status }) {
 export default function AdminReviews() {
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState("pending");
+  // Published reviews are the default view because reviews go live
+  // automatically. Pending is still available for anything unusual.
+  const [status, setStatus] = useState("approved");
   const [search, setSearch] = useState("");
   const [reviews, setReviews] = useState([]);
   const [total, setTotal] = useState(0);
@@ -173,25 +180,26 @@ export default function AdminReviews() {
     }
   };
 
+  // Approve / restore. Both move the review to 'approved' — the only status
+  // the public site reads. The wording just reflects where it came from.
   const approve = (review) =>
     runAction(
       review,
       () => updateAdminReviewStatus(review.id, "approved"),
-      `Approved. "${review.customerName}"'s review is now live on the website.`
+      review.status === "rejected"
+        ? `Restored. "${review.customerName}"'s review is live again.`
+        : `Published. "${review.customerName}"'s review is now live on the website.`
     );
 
+  // Reject (pending) / hide (already published). Both set 'rejected', which is
+  // never returned by a public endpoint.
   const reject = (review) =>
     runAction(
       review,
       () => updateAdminReviewStatus(review.id, "rejected"),
-      `Rejected. "${review.customerName}"'s review stays hidden from the website.`
-    );
-
-  const setPending = (review) =>
-    runAction(
-      review,
-      () => updateAdminReviewStatus(review.id, "pending"),
-      "Moved back to Pending."
+      review.status === "approved"
+        ? `Hidden. "${review.customerName}"'s review no longer appears on the website.`
+        : `Rejected. "${review.customerName}"'s review stays hidden from the website.`
     );
 
   const remove = (review) => {
@@ -207,7 +215,7 @@ export default function AdminReviews() {
     navigate("/admin/login", { replace: true });
   };
 
-  const filtersActive = search !== "" || status !== "pending";
+  const filtersActive = search !== "" || status !== "approved";
   const pendingTotal = counts.pending;
 
   const heading = useMemo(
@@ -233,9 +241,11 @@ export default function AdminReviews() {
             )}
           </h1>
           <p>
-            New customer reviews arrive here as <strong>Pending</strong>. Nothing is published on
-            the website until you approve it, and a review is only marked Verified Buyer when its
-            order number and checkout email matched a real order.
+            Verified reviews are <strong>published automatically</strong> as soon as the server
+            confirms the order number, checkout email, purchased product, duplicate rule, rating
+            and review text. Use the actions here to hide, reject, restore or delete a review if
+            needed. A review is only marked Verified Buyer when its order number and checkout
+            email matched a real order.
           </p>
         </div>
         <div className="admin-header-actions">
@@ -324,7 +334,7 @@ export default function AdminReviews() {
               className="adm-link-button"
               onClick={() => {
                 setSearch("");
-                setStatus("pending");
+                setStatus("approved");
               }}
             >
               Clear all filters
@@ -404,17 +414,29 @@ export default function AdminReviews() {
                   </div>
 
                   <div className="adm-review-actions">
-                    {review.status !== "approved" && (
+                    {/* Published -> Hide.  Pending -> Publish or Reject.
+                        Hidden -> Restore.  Delete is always available. */}
+                    {review.status === "approved" ? (
+                      <button
+                        type="button"
+                        className="adm-button adm-button-secondary"
+                        onClick={() => reject(review)}
+                        disabled={busy}
+                      >
+                        <EyeOff size={15} aria-hidden /> Hide
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         className="adm-button adm-button-primary"
                         onClick={() => approve(review)}
                         disabled={busy}
                       >
-                        <Check size={15} aria-hidden /> Approve
+                        <ArchiveRestore size={15} aria-hidden />{" "}
+                        {review.status === "rejected" ? "Restore" : "Publish"}
                       </button>
                     )}
-                    {review.status !== "rejected" && (
+                    {review.status === "pending" && (
                       <button
                         type="button"
                         className="adm-button adm-button-secondary"
@@ -422,16 +444,6 @@ export default function AdminReviews() {
                         disabled={busy}
                       >
                         <Ban size={15} aria-hidden /> Reject
-                      </button>
-                    )}
-                    {review.status !== "pending" && (
-                      <button
-                        type="button"
-                        className="adm-button adm-button-ghost"
-                        onClick={() => setPending(review)}
-                        disabled={busy}
-                      >
-                        <RefreshCw size={15} aria-hidden /> Unpublish
                       </button>
                     )}
                     <button
@@ -464,10 +476,11 @@ export default function AdminReviews() {
         )}
 
         <p className="adm-price-hint">
-          <BadgeCheck size={13} aria-hidden /> Approving a review publishes it on the website and
-          updates that product&rsquo;s average rating. Rejecting or deleting removes it from the
-          public site. The customer&rsquo;s email address is only ever shown here — never on the
-          public pages.
+          <BadgeCheck size={13} aria-hidden /> Verified reviews are published automatically. Use{" "}
+          <strong>Hide</strong> to remove a published review, <strong>Reject</strong> for a pending
+          one, <strong>Restore</strong> to publish it again, or <strong>Delete</strong> to remove it
+          for good. Any of these updates that product&rsquo;s average rating. The customer&rsquo;s
+          email address is only ever shown here — never on the public pages.
         </p>
       </section>
 
@@ -537,7 +550,19 @@ export default function AdminReviews() {
               <button type="button" className="adm-button adm-button-ghost" onClick={() => setPreview(null)}>
                 Close
               </button>
-              {preview.status !== "approved" && (
+              {preview.status === "approved" ? (
+                <button
+                  type="button"
+                  className="adm-button adm-button-secondary"
+                  onClick={() => {
+                    const target = preview;
+                    setPreview(null);
+                    reject(target);
+                  }}
+                >
+                  <EyeOff size={15} aria-hidden /> Hide
+                </button>
+              ) : (
                 <button
                   type="button"
                   className="adm-button adm-button-primary"
@@ -547,7 +572,8 @@ export default function AdminReviews() {
                     approve(target);
                   }}
                 >
-                  <Check size={15} aria-hidden /> Approve
+                  <ArchiveRestore size={15} aria-hidden />{" "}
+                  {preview.status === "rejected" ? "Restore" : "Publish"}
                 </button>
               )}
             </div>

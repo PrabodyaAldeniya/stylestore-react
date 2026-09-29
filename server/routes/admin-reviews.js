@@ -7,8 +7,13 @@
 //
 //   GET    /api/admin/reviews           — list, search, filter
 //   GET    /api/admin/reviews/counts    — pending/approved/rejected
-//   PATCH  /api/admin/reviews/:id/status— approve or reject
+//   PATCH  /api/admin/reviews/:id/status— approve (restore) or
+//                                        reject (hide)
 //   DELETE /api/admin/reviews/:id       — delete for good
+//
+// Verified reviews are published automatically, so this API is
+// for moderation after the fact: the owner can hide or reject a
+// review, restore it, or delete it safely.
 //
 // This is the ONLY place the customer's email address and order
 // number are ever returned. Approving, rejecting or deleting a
@@ -129,9 +134,9 @@ router.patch(
       counts: await countReviewsByStatus(),
       message:
         status === "approved"
-          ? "Review approved and published on the website."
+          ? "Review restored and published on the website."
           : status === "rejected"
-            ? "Review rejected. It stays hidden from the website."
+            ? "Review hidden. It no longer appears on the website."
             : "Review moved back to pending.",
     });
   })

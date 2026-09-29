@@ -196,8 +196,11 @@ const STATEMENTS = [
   //     an archive, or a permanent product delete.
   //   * `product_name` is a snapshot (the same approach order_items uses), so
   //     an approved review stays readable even after the product row is gone.
-  //   * `status` is the approval gate. Only 'approved' rows are ever read by
-  //     the public API, and every new review starts as 'pending'.
+  //   * `status` is the publication gate. Only 'approved' rows are ever read
+  //     by the public API. A review is written as 'approved' only after the
+  //     server has verified the order number, checkout email, purchased
+  //     product, duplicate rule, rating and review text; the admin can later
+  //     hide, reject, restore or delete it.
   //   * UNIQUE(order_id, product_id) makes a duplicate review for the same
   //     order line impossible, even if two identical requests race.
   //   * `customer_email` exists for the admin only and is never included in a

@@ -174,10 +174,14 @@ export async function findReviewForOrderProduct(orderId, productId, connection =
 // ========================================================
 
 /**
- * Save a new review. It is ALWAYS created as 'pending' — the status is not
- * read from the request body, so a customer can never publish their own
- * review. `verified_buyer` is 1 because this is only reachable after a
- * successful order-number + email match.
+ * Save a new review.
+ *
+ * AUTO-PUBLISH RULE: the status is written as 'approved' and `verified_buyer`
+ * as 1 right here, because the caller only reaches this function after the
+ * order number, the checkout email, the purchased product, the duplicate
+ * rule, the rating and the review text have all been verified. The status is
+ * never read from the request body, so a customer can still never choose to
+ * publish or to skip publishing — the server alone decides.
  *
  * UNIQUE(order_id, product_id) turns a duplicate into an ER_DUP_ENTRY, which
  * the caller maps to a friendly "already reviewed" message.
@@ -190,7 +194,7 @@ export async function createReview(
     `INSERT INTO product_reviews
        (product_id, product_name, order_id, order_number, customer_name,
         customer_email, rating, review_title, review_text, verified_buyer, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending')`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'approved')`,
     [
       productId,
       productName,
@@ -232,6 +236,24 @@ export async function listApprovedReviews(
     scoped ? [productId, max] : [max]
   );
   return rows.map(toPublicReview);
+}
+
+/**
+ * One review by id, in the same privacy-safe shape the public list uses.
+ * Used right after an auto-approved insert so the browser can show the new
+ * review immediately — without ever receiving an email, an order number or an
+ * internal id.
+ */
+export async function getPublicReviewById(id, connection = pool) {
+  const [rows] = await connection.execute(
+    `SELECT ${PUBLIC_COLUMNS}, ${PRODUCT_NAME} AS product_name
+       FROM product_reviews r
+       LEFT JOIN products p ON p.id = r.product_id
+      WHERE r.id = ?
+      LIMIT 1`,
+    [id]
+  );
+  return rows[0] ? toPublicReview(rows[0]) : null;
 }
 
 /** Average rating + review count for one product, from approved reviews only. */

@@ -7,7 +7,7 @@
    it contains a first name + last initial, a rating, the text,
    the product name and the date. It never contains an email
    address, an order number or a database id, and the backend only
-   ever returns reviews that have been approved by the owner.
+   ever returns published (approved) reviews.
 
    Errors are thrown with `.code` and `.fields` so a form can
    highlight the exact field that needs fixing.
@@ -72,7 +72,10 @@ export function verifyOrderForReview(orderNumber, email) {
   });
 }
 
-/** Step 2. The backend re-checks the order itself and stores it as pending. */
+/**
+ * Step 2. The backend re-checks the order itself and, once every check passes,
+ * stores the review as approved and publishes it immediately.
+ */
 export function submitReview(payload) {
   return request("/api/reviews", { method: "POST", body: payload });
 }

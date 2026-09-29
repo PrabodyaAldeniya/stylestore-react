@@ -1,13 +1,18 @@
 /* ========================================================
    PRODUCT REVIEWS
    --------------------------------------------------------
-   The approved, product-specific reviews shown inside the Quick
-   View and the product detail area.
+   The published (approved), product-specific reviews shown
+   inside the Quick View and the product detail area.
 
    It reads GET /api/products/:id/reviews, which returns only
    approved reviews plus the average rating and review count
    calculated from those same approved reviews — so the number
    next to the stars can never disagree with the cards below it.
+
+   LIVE REFRESH: it also subscribes to reviewEvents.js. When the
+   review form publishes a review for this product, the list is
+   fetched again automatically, so the new review appears without
+   a full-page refresh.
 
    Loading, API-error and "no reviews yet" states are all
    handled: this component never falls back to sample reviews.
@@ -16,13 +21,14 @@ import { useEffect, useState } from "react";
 import { Loader2, MessageSquare, RefreshCw } from "lucide-react";
 
 import { fetchProductReviews } from "../../lib/reviewApi";
+import { onReviewPublished } from "../../lib/reviewEvents";
 import ReviewCard from "./ReviewCard";
 import { Stars } from "./StarRating";
 import WriteReviewDialog from "./WriteReviewDialog";
 
 /** "4.5" + 12 -> "4.5 · 12 reviews" */
 function summaryLine(summary) {
-  if (!summary?.reviewCount) return "No approved reviews yet";
+  if (!summary?.reviewCount) return "No reviews yet";
   const average = Number(summary.averageRating || 0).toFixed(1);
   return `${average} · ${summary.reviewCount} review${summary.reviewCount === 1 ? "" : "s"}`;
 }
@@ -61,6 +67,21 @@ export default function ProductReviews({ productId, productName, limit }) {
     };
   }, [productId, limit, attempt]);
 
+  // Live refresh listener. The review form publishes a review and emits an
+  // event; if it was for THIS product we relabel as loading and bump `attempt`,
+  // which re-runs the fetch effect above. Setting state inside the event
+  // listener is an external-system update, so it is safe here.
+  useEffect(() => {
+    if (!productId) return undefined;
+    return onReviewPublished((detail) => {
+      const publishedFor = Number(detail?.productId);
+      if (!Number.isFinite(publishedFor) || publishedFor === Number(productId)) {
+        setState({ status: "loading", reviews: [], summary: null });
+        setAttempt((value) => value + 1);
+      }
+    });
+  }, [productId]);
+
   // Resetting during render (rather than in an effect) means the previous
   // product's reviews are never left on screen under the new product's name.
   if (shownProductId !== productId) {
@@ -92,7 +113,7 @@ export default function ProductReviews({ productId, productName, limit }) {
             </div>
           )}
           {state.status === "success" && !state.summary?.reviewCount && (
-            <p className="rv-product-count">No approved reviews yet</p>
+            <p className="rv-product-count">No reviews yet</p>
           )}
         </div>
         <WriteReviewDialog

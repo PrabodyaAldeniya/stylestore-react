@@ -32,7 +32,7 @@ function RatingStars({ rating, reviewCount, className = "" }) {
   const value = Number(rating) || 0;
   const text = reviewCount
     ? `${value.toFixed(1)} out of 5 stars from ${reviewCount} review${reviewCount === 1 ? "" : "s"}`
-    : "No approved reviews yet";
+    : "No reviews yet";
   return (
     <span className={`rv-rating ${className}`.trim()}>
       <Stars value={value} />

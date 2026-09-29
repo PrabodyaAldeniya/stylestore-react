@@ -2,14 +2,20 @@
    CUSTOMER REVIEWS — the public reviews section
    --------------------------------------------------------
    This used to render three invented customer quotes. It now
-   reads GET /api/reviews, which returns APPROVED reviews from
-   the database only. A pending or rejected review can never
-   appear here, and if there are no approved reviews the section
-   says so honestly instead of showing sample customers.
+   reads GET /api/reviews, which returns APPROVED (published)
+   reviews from the database only. A hidden, rejected or pending
+   review can never appear here, and if there are no published
+   reviews the section says so honestly instead of showing
+   sample customers.
 
    The heading is deliberately "Loved by our customers" rather
    than "Loved by thousands": the count shown is the real number
-   of approved reviews, so the copy can never overstate it.
+   of published reviews, so the copy can never overstate it.
+
+   LIVE REFRESH: a new verified review is published the moment the
+   server verifies it. This section listens for the publish event
+   from reviewEvents.js and refetches, so the new review shows up
+   without a full-page reload.
 
    This is also where the "Write a Review" button lives.
    ======================================================== */
@@ -17,6 +23,7 @@ import { useEffect, useState } from "react";
 import { Loader2, MessageSquarePlus, RefreshCw } from "lucide-react";
 
 import { fetchApprovedReviews } from "../lib/reviewApi";
+import { onReviewPublished } from "../lib/reviewEvents";
 import ReviewCard from "./reviews/ReviewCard";
 import WriteReviewDialog from "./reviews/WriteReviewDialog";
 
@@ -52,6 +59,17 @@ export default function Testimonials() {
     };
   }, [attempt]);
 
+  // Live refresh listener. Any published review affects this section, so it
+  // reloads on every publish event — no full-page refresh needed.
+  useEffect(
+    () =>
+      onReviewPublished(() => {
+        setState({ status: "loading", reviews: [] });
+        setAttempt((value) => value + 1);
+      }),
+    []
+  );
+
   // The loading flag is set here, in the click handler, rather than at the top
   // of the effect, so the effect never writes state synchronously.
   const retry = () => {
@@ -68,7 +86,8 @@ export default function Testimonials() {
         <span className="eyebrow">PEOPLE WORDS</span>
         <h2>Loved by our customers</h2>
         <p>
-          Real reviews from real StyleStore orders, published after our team checks each one.
+          Real reviews from real StyleStore orders. Each one is verified against its order and
+          published immediately.
         </p>
       </div>
 
@@ -115,8 +134,8 @@ export default function Testimonials() {
             <MessageSquarePlus size={20} aria-hidden />
             <h3>No published reviews yet</h3>
             <p>
-              Once customers review the pieces they have bought and our team approves them, they
-              will appear here. If you have ordered from us, we would love to hear from you.
+              Once customers review the pieces they have bought, their verified reviews appear
+              here. If you have ordered from us, we would love to hear from you.
             </p>
             <WriteReviewDialog label="Write the first review" variant="secondary" />
           </div>

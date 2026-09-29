@@ -151,7 +151,11 @@ export function getAdminReviewCounts() {
   return request("/api/admin/reviews/counts");
 }
 
-/** Approve or reject a review. The server re-syncs the product rating. */
+/**
+ * Publish (restore) or hide (reject) a review. Verified reviews are published
+ * automatically, so this is used for moderation after the fact. The server
+ * re-syncs the product rating to match the approved reviews afterwards.
+ */
 export function updateAdminReviewStatus(id, status) {
   return request(`/api/admin/reviews/${encodeURIComponent(id)}/status`, {
     method: "PATCH",

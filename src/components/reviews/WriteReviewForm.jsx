@@ -12,18 +12,23 @@
    Step 2 — Write your review
      Pick one of the products, choose 1–5 stars, add an optional
      title and a short message, and the name you would like
-     shown. The server re-checks the order from scratch, marks
-     the review "Verified Buyer" because the check passed, and
-     saves it as PENDING for the owner to approve.
+     shown. The server re-checks the order from scratch, verifies
+     the product, the duplicate rule, the rating and the text,
+     then marks the review "Verified Buyer" and PUBLISHES it
+     immediately (status = approved).
 
    Nothing here trusts the browser: the verification result, the
    product list and the Verified Buyer flag all come from the
-   server, never from local state.
+   server, never from local state. After a successful submit the
+   form announces the new review through reviewEvents.js, which
+   makes the product reviews and the "Loved by our customers"
+   section refresh without a full-page reload.
    ======================================================== */
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, Check, Loader2, Search, Send } from "lucide-react";
 
 import { submitReview, verifyOrderForReview } from "../../lib/reviewApi";
+import { notifyReviewPublished } from "../../lib/reviewEvents";
 import { assetUrl } from "../../lib/productApi";
 import { StarInput } from "./StarRating";
 
@@ -53,6 +58,11 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const headingRef = useRef(null);
+  // A synchronous lock, separate from the `verifying` / `submitting` state.
+  // React state updates are batched, so two very fast clicks can both see the
+  // old `false`; this ref is flipped immediately, before any await, and is
+  // what actually stops a repeated fast click from sending twice.
+  const inFlightRef = useRef(false);
 
   const update = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -71,6 +81,9 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
   // ---- Step 1: verify the order number + email ----
   const findOrder = async (event) => {
     event.preventDefault();
+    // Ignore a second click while the first lookup is still running.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setVerifying(true);
     setMessage(null);
     setFields({});
@@ -89,6 +102,7 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
       setFields(error.fields || {});
       setMessage({ type: "error", text: error.message });
     } finally {
+      inFlightRef.current = false;
       setVerifying(false);
     }
   };
@@ -103,6 +117,10 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
   // ---- Step 2: submit the review ----
   const send = async (event) => {
     event.preventDefault();
+    // The same lock as step 1: a rapid double-click must not create two
+    // reviews. The server still has the UNIQUE index as a second guard.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setSubmitting(true);
     setMessage(null);
     setFields({});
@@ -119,6 +137,13 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
       });
       // The exact wording the shop promises on submission.
       setMessage({ type: "success", text: result.message });
+      // The review is already live on the server. Announce it so the product
+      // reviews and the "Loved by our customers" section refetch themselves
+      // immediately — no full-page refresh.
+      notifyReviewPublished({
+        productId: Number(form.productId),
+        review: result.review || null,
+      });
       // The dialog deliberately stays open: the customer must be able to read
       // the confirmation before it closes, so `onDone` is only called by the
       // Close button on the success screen below.
@@ -126,6 +151,7 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
       setFields(error.fields || {});
       setMessage({ type: "error", text: error.message });
     } finally {
+      inFlightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -143,8 +169,8 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
         <p className="rv-done-lead">{message.text}</p>
         {chosen && (
           <p className="rv-done-note">
-            Your review of <strong>{chosen.productName}</strong> will appear on the website once
-            the StyleStore team has approved it.
+            Your verified review of <strong>{chosen.productName}</strong> is now live on the
+            website and is already counted in its rating.
           </p>
         )}
         {onDone && (
@@ -402,8 +428,9 @@ export default function WriteReviewForm({ initialOrderNumber = "", onDone, onCan
           </div>
 
           <p className="rv-form-footnote">
-            Your review is checked by the StyleStore team before it appears on the website.
-            Your email address is never published.
+            Your review is verified against your order and published straight away. The
+            StyleStore team can still hide it if it breaks our guidelines. Your email address
+            is never published.
           </p>
         </form>
       )}

@@ -5,8 +5,9 @@
 //
 //   POST /api/reviews/verify  — check an order number + email
 //                               and list what can be reviewed
-//   POST /api/reviews        — submit a review (saved pending)
-//   GET  /api/reviews        — approved reviews only
+//   POST /api/reviews        — submit a review (auto-published
+//                               once every check below passes)
+//   GET  /api/reviews        — published (approved) reviews only
 //
 // Safety rules for this file:
 //   * every SQL statement is parameterised and lives in
@@ -15,8 +16,9 @@
 //     order the customer proved they own
 //   * "Verified Buyer" is set by the server after that proof, never
 //     by the browser
-//   * the status is always 'pending'; there is no way to publish
-//     your own review
+//   * the status is always set to 'approved' by the server after
+//     the order number, email, product, duplicate, rating and text
+//     checks pass — the browser can never choose the status
 //   * responses never contain the email address, the order number
 //     or any internal id
 //   * database errors are logged server-side and answered with a
@@ -31,8 +33,10 @@ import {
   findOrderForReview,
   findOrderItemForReview,
   findReviewForOrderProduct,
+  getPublicReviewById,
   listApprovedReviews,
   listOrderReviewableProducts,
+  syncProductRating,
 } from "../repositories/reviews.js";
 import { findSpamReason, reviewError, validateReviewSubmission } from "../validation/review.js";
 
@@ -172,18 +176,23 @@ function validateOrderLookup(body = {}) {
 // --------------------------------------------------------
 // Step 2: the order is verified again from scratch (never trust
 // the earlier step), the product is confirmed to be inside that
-// order, a duplicate is refused, and the row is written as
-// 'pending'.
+// order, a duplicate is refused, and only then is the row
+// written as 'approved' with verified_buyer = 1. In the same
+// transaction the product's rating is recalculated from its
+// approved reviews, so the public number is correct the moment
+// the response leaves the server.
 // ========================================================
 router.post("/reviews", submitLimiter, async (req, res) => {
   const body = req.body ?? {};
 
-  // Honeypot + cheap spam heuristics before any database work.
+  // Honeypot + cheap spam heuristics before any database work. A bot that
+  // filled the hidden field gets the same happy answer as a person, but
+  // nothing is written to the database.
   const spam = findSpamReason(body);
   if (spam === "honeypot") {
     return res.status(200).json({
       success: true,
-      message: "Thank you! Your review was submitted and is awaiting approval.",
+      message: "Thank you! Your review has been published.",
     });
   }
   if (spam) {
@@ -252,9 +261,9 @@ router.post("/reviews", submitLimiter, async (req, res) => {
       });
     }
 
-    // 5. Write it. Status is hard-coded to 'pending' in the repository and
-    //    verified_buyer to 1, because we got here only after step 2 passed.
-    await createReview(
+    // 5. Write it. Status is hard-coded to 'approved' in the repository and
+    //    verified_buyer to 1, because we got here only after steps 2–4 passed.
+    const reviewId = await createReview(
       {
         orderId: order.id,
         orderNumber: order.order_number,
@@ -271,12 +280,24 @@ router.post("/reviews", submitLimiter, async (req, res) => {
       connection
     );
 
+    // 6. Recalculate the product's rating from its APPROVED reviews only, in
+    //    the same transaction as the insert, so the stored average can never
+    //    drift from the reviews a visitor can actually see.
+    const summary = await syncProductRating(productId, connection);
+
+    // 7. Read the new row back in its public shape. This object deliberately
+    //    has no email, no order number and no database id, so it is safe to
+    //    hand straight to the browser for an instant display.
+    const review = await getPublicReviewById(reviewId, connection);
+
     await connection.commit();
     return res.status(201).json({
       success: true,
-      status: "pending",
+      status: "approved",
       verifiedBuyer: true,
-      message: "Thank you! Your review was submitted and is awaiting approval.",
+      review,
+      summary,
+      message: "Thank you! Your review is verified and is now published.",
     });
   } catch (error) {
     await connection.rollback();

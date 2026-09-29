@@ -47,19 +47,19 @@ StyleStore is a React/Vite storefront backed by an Express API and MySQL/MariaDB
 
 ## Customer reviews
 
-Reviews are database backed and always start as `pending`. Nothing a customer writes is visible on the public site until the owner approves it.
+Reviews are database backed and are **auto-published** (status `approved`, `verified_buyer = 1`) only after the server verifies the order number, the checkout email, the purchased product, the duplicate-review rule, the rating and the review text. A review that fails any check is never written.
 
 Submission is a two-step, account-free flow. The customer enters their order number and the email used at checkout; the server matches that pair against `orders` and returns only the products in that order. The product is then chosen from that list, so a customer can never be offered a product they did not buy. The server repeats the order lookup on submit, so the "Verified Buyer" flag and the linked `order_id` are decided by the database rather than by the browser. `UNIQUE (order_id, product_id)` blocks a second review of the same item.
 
 - `POST /api/reviews/verify` returns the order number and the products inside it, marking the ones already reviewed. It never confirms whether an unrelated email is registered.
-- `POST /api/reviews` stores a pending, verified review and returns the confirmation shown to the customer.
-- `GET /api/reviews` returns approved reviews only, newest first.
+- `POST /api/reviews` re-verifies everything and, once every check passes, stores an approved review. It returns the new review in its public shape plus the recalculated rating summary so the page can show it immediately.
+- `GET /api/reviews` returns approved (published) reviews only, newest first.
 - `GET /api/products/:id/reviews` returns approved reviews for one product plus the average and count.
-- `GET /api/admin/reviews`, `GET /api/admin/reviews/counts`, `PATCH /api/admin/reviews/:id/status`, and `DELETE /api/admin/reviews/:id` manage moderation behind `requireAdmin`.
+- `GET /api/admin/reviews`, `GET /api/admin/reviews/counts`, `PATCH /api/admin/reviews/:id/status`, and `DELETE /api/admin/reviews/:id` let the owner hide, reject, restore or delete a review behind `requireAdmin`.
 
 Public responses are reduced server-side to a first name and last initial, a rating, the title, the text, the product name and the date. Email addresses, order numbers and review ids are never sent to the public site, and no request ever needs a session. Submitting is rate limited per IP and screened for honeypot submissions, links, phone numbers and repeated text. The two limits can be tuned with `REVIEW_SUBMIT_LIMIT` (default 12) and `REVIEW_VERIFY_LIMIT` (default 20).
 
-Approving, rejecting or deleting a review recalculates that product's `rating` and `rating_count` from its approved reviews, so the stars shown on a product always match the reviews underneath them. Reviews are not linked to products with a foreign key and store a copy of the product name, so they survive a product being archived, trashed or permanently deleted.
+Publishing a review recalculates that product's `rating` and `rating_count` from its approved reviews in the same transaction, so the stars shown on a product always match the reviews underneath them. Hiding, rejecting, restoring or deleting a review recalculates them again. Reviews are not linked to products with a foreign key and store a copy of the product name, so they survive a product being archived, trashed or permanently deleted.
 
 ## Product images
 
@@ -78,4 +78,4 @@ npm run lint
 npm run build
 ```
 
-Run the API with a reachable database before testing `/api/health`, admin login, image upload, public catalogue visibility, checkout, stock decrement, order history, and the review flow (verify an order, submit a review, confirm it stays hidden until it is approved at `/admin/reviews`, and confirm approving it updates the product rating). Do not run `npm run dev:all` as a background process in automated verification.
+Run the API with a reachable database before testing `/api/health`, admin login, image upload, public catalogue visibility, checkout, stock decrement, order history, and the review flow (verify an order, submit a review, confirm it is published straight away on the product and in "Loved by our customers" without a page refresh, and confirm the product rating updated). Then check `/admin/reviews` can hide, reject, restore and delete it. Do not run `npm run dev:all` as a background process in automated verification.

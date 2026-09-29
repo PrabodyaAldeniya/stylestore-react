@@ -169,9 +169,11 @@ CREATE TABLE IF NOT EXISTS system_seed_markers (
 --
 -- Replaces the old hard-coded homepage reviews. A customer
 -- proves their purchase with an order number + the checkout
--- email, the server checks that pair against `orders`, and the
--- review is stored as 'pending'. Only 'approved' rows are ever
--- read by the public API.
+-- email, the server verifies the order, the product, the
+-- duplicate rule, the rating and the text, and only then is the
+-- review stored as 'approved'. Only 'approved' rows are ever
+-- read by the public API. The owner can later hide, reject,
+-- restore or delete a review.
 --
 -- Safe by design:
 --   * product_id / order_id carry NO foreign key on purpose, so
