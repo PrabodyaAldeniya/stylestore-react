@@ -1,18 +1,27 @@
 ﻿/* ========================================
-   FOOTER — dark premium footer
-   Single centred 1280px container holds:
-   CTA row (left heading / right button),
-   4 aligned link columns, and a clean
-   bottom bar (copyright / legal / payments).
-   Responsive: 4 cols -> 2 cols -> 1 col.
-   No absolute positioning, no stray margins.
+   FOOTER — premium editorial fashion style
+   Colours, typography, layout, responsive.
    ======================================== */
+
+/* ---- Colour tokens ---- */
+:root {
+  --footer-bg: #160D1C;
+  --footer-dark: #211128;
+  --footer-ivory: #F5EFE7;
+  --footer-beige: #B9A89F;
+  --footer-lavender: #B89AFF;
+  --footer-violet: #7C3AED;
+  --footer-border: rgba(245, 239, 231, 0.14);
+}
+
+/* ---- Base ---- */
 .footer {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--footer-bg);
+  color: var(--footer-ivory);
   padding: 64px clamp(18px, 4vw, 40px) 26px;
 }
 
+/* ---- Inner container ---- */
 .footer-inner {
   max-width: 1280px;
   width: 100%;
@@ -28,7 +37,7 @@
   justify-content: space-between;
   gap: 20px 28px;
   padding-bottom: 36px;
-  border-bottom: 1px solid rgba(255, 244, 229, 0.14);
+  border-bottom: 1px solid var(--footer-border);
 }
 
 .footer-cta h2 {
@@ -36,42 +45,62 @@
   line-height: 1.08;
   letter-spacing: -0.02em;
   margin: 0 0 8px;
+  color: var(--footer-ivory);
 }
 
 .footer-cta h2 em {
   font-style: normal;
-  color: var(--electric);
+  color: var(--footer-violet);
 }
 
 .footer-cta p {
-  color: var(--sand-mid);
+  color: var(--footer-beige);
   max-width: 48ch;
   font-size: 15px;
   line-height: 1.65;
   margin: 0;
 }
 
+/* ---- CTA Sign Up button ---- */
 .footer-cta-actions {
   display: flex;
   flex: 0 0 auto;
 }
 
 .footer-cta-actions .primary-button {
-  background: var(--electric);
-  color: #fff;
-  border-color: var(--electric);
+  background: var(--footer-violet);
+  color: var(--footer-ivory);
+  border-color: var(--footer-violet);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  min-height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .footer-cta-actions .primary-button:hover {
-  background: var(--electric-d);
-  border-color: var(--electric-d);
+  transform: translateY(-1px) !important;
+  background: var(--footer-lavender);
+  border-color: var(--footer-lavender);
+}
+
+.footer-cta-actions .primary-button:focus-visible {
+  outline: 2px solid var(--footer-violet);
+  outline-offset: 2px;
+  background: var(--footer-lavender);
+  border-color: var(--footer-lavender);
 }
 
 /* ---- Link columns: Brand / Collections / Help / Company ---- */
 .footer-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(24px, 4vw, 48px);
+  gap: clamp(20px, 3vw, 32px);
   padding: 40px 0 32px;
 }
 
@@ -79,7 +108,7 @@
   min-width: 0;
 }
 
-/* Brand column — resets the global .brand helper from App.css */
+/* Brand column — editorial serif */
 .footer-brand .brand {
   display: inline-flex;
   align-items: baseline;
@@ -90,16 +119,24 @@
   font-size: clamp(24px, 2.4vw, 28px);
   letter-spacing: -0.02em;
   line-height: 1.1;
+  color: var(--footer-ivory);
+}
+
+.footer-brand .brand-amp {
+  color: var(--footer-violet);
+  font-family: Georgia, serif;
+  font-style: italic;
 }
 
 .footer-brand p {
-  color: var(--sand-mid);
+  color: var(--footer-beige);
   font-size: 15px;
   line-height: 1.7;
   max-width: 34ch;
   margin: 14px 0 0;
 }
 
+/* Social row */
 .social-row {
   display: flex;
   gap: 10px;
@@ -112,17 +149,24 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--paper);
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border: 1px solid var(--footer-border);
+  color: var(--footer-ivory);
+  background: transparent;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .social-row a:hover {
-  background: var(--electric);
-  border-color: var(--electric);
-  color: #fff;
+  border-color: var(--footer-violet);
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--footer-violet);
 }
 
+.social-row a:focus-visible {
+  outline: 2px solid var(--footer-violet);
+  outline-offset: 2px;
+}
+
+/* Column heading */
 .footer-col {
   display: flex;
   flex-direction: column;
@@ -130,13 +174,10 @@
   gap: 10px;
 }
 
-/* Column heading doubles as the accordion toggle on mobile.
-   Desktop: plain heading, not interactive. */
 .footer-col-toggle {
   display: inline-flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
   width: 100%;
   padding: 0;
   min-height: 0;
@@ -145,12 +186,19 @@
   cursor: default;
   text-align: left;
   font-family: "Inter", sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--sand-2);
   font-weight: 700;
+  color: var(--footer-beige);
   margin: 0 0 4px;
+}
+
+/* Desktop: remove toggle styling, show links always */
+@media (min-width: 768px) {
+  .footer-col-toggle {
+    display: none;
+  }
 }
 
 .footer-col-chevron { display: none; }
@@ -158,66 +206,87 @@
 .footer-col-links {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .footer-col a {
   display: block;
-  color: var(--sand-mid);
-  font-size: 15px;
+  color: var(--footer-beige);
+  font-size: 14px;
   line-height: 1.5;
-  padding: 1px 0;
-  transition: color 0.2s ease;
+  padding: 2px 0;
+  transition: color 0.2s ease, text-indent 0.2s ease;
 }
 
 .footer-col a:hover {
-  color: var(--paper);
+  color: var(--footer-ivory);
+  text-indent: 2px;
 }
 
-/* ---- Bottom bar: copyright + legal links + payments ---- */
+/* ---- Bottom bar: copyright + legal + payments ---- */
 .footer-bottom {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px 28px;
+  gap: 28px 20px;
   padding-top: 24px;
-  border-top: 1px solid rgba(255, 244, 229, 0.14);
-  font-size: 14.5px;
-  color: var(--sand-mid);
-}
-
-.footer-legal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+  border-top: 1px solid var(--footer-border);
+  font-size: 13px;
+  color: var(--footer-beige);
 }
 
 .footer-bottom a {
-  color: var(--sand-mid);
+  color: var(--footer-beige);
   transition: color 0.2s ease;
 }
 
 .footer-bottom a:hover {
-  color: var(--paper);
+  color: var(--footer-ivory);
 }
 
+/* Legal links group */
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  order: 0;
+}
+
+/* Payment methods group */
 .payments-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   list-style: none;
   margin: 0;
   padding: 0;
+  order: 1;
 }
 
 .payments-list li {
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  color: var(--sand-mid);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--footer-beige);
+  border: 1px solid var(--footer-border);
   border-radius: 6px;
   padding: 6px 10px;
+  background: transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.payments-list li:hover {
+  border-color: var(--footer-violet);
+  background: rgba(124, 58, 237, 0.06);
+  color: var(--footer-violet);
+}
+
+/* Copyright */
+.footer-copy {
+  order: 2;
+  color: var(--footer-beige);
+  font-size: 12px;
 }
 
 /* ---- Responsive: desktop 4 -> tablet 2 -> mobile 1 ---- */
@@ -241,15 +310,22 @@
   .footer-cta h2 {
     font-size: clamp(26px, 8vw, 32px);
     margin: 0;
+    color: var(--footer-ivory);
+  }
+
+  .footer-cta h2 em {
+    color: var(--footer-violet);
   }
 
   .footer-cta p {
     font-size: 15px;
     max-width: 40ch;
+    color: var(--footer-beige);
   }
 
   .footer-cta-actions {
     justify-content: center;
+    width: 100%;
   }
 
   .footer-cta-actions .primary-button {
@@ -259,7 +335,7 @@
     justify-content: center;
   }
 
-  /* ---- Single column + centred brand block ---- */
+  /* ---- Mobile-first brand + social centre ---- */
   .footer-grid {
     grid-template-columns: 1fr;
     gap: 0;
@@ -277,6 +353,7 @@
 
   .footer-brand p {
     margin: 12px auto 0;
+    max-width: 28ch;
   }
 
   .social-row {
@@ -299,19 +376,20 @@
     gap: 12px;
     padding: 12px 0;
     margin: 0;
-    border-bottom: 1px solid rgba(255, 244, 229, 0.12);
+    border-bottom: 1px solid var(--footer-border);
     cursor: pointer;
     font-size: 14px;
+    color: var(--footer-beige);
     transition: color 0.2s ease;
   }
 
   .footer-col-toggle:hover {
-    color: var(--paper);
+    color: var(--footer-ivory);
   }
 
   .footer-col-chevron {
     display: block;
-    color: var(--sand-mid);
+    color: var(--footer-beige);
     flex: 0 0 auto;
     transition: transform 0.25s var(--ease-out), color 0.2s ease;
   }
@@ -343,17 +421,23 @@
     min-height: 44px;
     font-size: 15px;
     padding: 0 4px;
+    color: var(--footer-beige);
   }
 
-  /* ---- Bottom bar: legal -> payments -> copyright ---- */
+  .footer-col a:hover {
+    color: var(--footer-ivory);
+    text-indent: 0;
+  }
+
+  /* ---- Bottom bar: stack groups, centre ---- */
   .footer-bottom {
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 14px;
+    gap: 18px;
     padding-top: 20px;
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .footer-legal {
@@ -367,7 +451,7 @@
     align-items: center;
     min-height: 44px;
     padding: 0 2px;
-    font-size: 14.5px;
+    font-size: 13.5px;
   }
 
   .payments-list {

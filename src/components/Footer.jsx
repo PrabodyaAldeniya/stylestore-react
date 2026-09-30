@@ -28,7 +28,7 @@ function FooterColumn({ title, items, open, onToggle }) {
 
       <div className={open ? "footer-col-links open" : "footer-col-links"}>
         {items.map((item) => (
-          <a key={item} href="#">{item}</a>
+          <span key={item}>{item}</span>
         ))}
       </div>
     </nav>
@@ -84,17 +84,17 @@ function Footer() {
       <div className="footer-grid">
         <nav className="footer-col footer-col--brand" aria-label="Brand">
           <div className="footer-brand">
-            <strong className="brand">StyleStore<span className="brand-amp">&amp;</span>Co</strong>
+            <strong className="brand">StyleStore<span className="brand-amp">&</span>Co</strong>
             <p>
               Premium fashion for every chapter of your story — designed in
               a studio, worn everywhere.
             </p>
 
             <div className="social-row">
-              <a href="#" aria-label="Instagram"><AtSign size={17} /></a>
-              <a href="#" aria-label="Facebook"><Share2 size={17} /></a>
-              <a href="#" aria-label="Twitter"><Globe size={17} /></a>
-              <a href="#" aria-label="YouTube"><MessageCircle size={17} /></a>
+              <a aria-label="Instagram"><AtSign size={17} /></a>
+              <a aria-label="Facebook sharing"><Share2 size={17} /></a>
+              <a aria-label="Website"><Globe size={17} /></a>
+              <a aria-label="Chat support"><MessageCircle size={17} /></a>
             </div>
           </div>
         </nav>
@@ -121,12 +121,12 @@ function Footer() {
 
       {/* ---- Bottom row ---- */}
       <div className="footer-bottom">
-        <span className="footer-copy">&copy; {new Date().getFullYear()} StyleStore &amp; Co. All rights reserved.</span>
+        <span className="footer-copy">&copy; {new Date().getFullYear()} StyleStore & Co. All rights reserved.</span>
 
         <div className="footer-legal">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms &amp; Conditions</a>
-          <a href="#">Cookie Settings</a>
+          <span>Privacy Policy</span>
+          <span>Terms & Conditions</span>
+          <span>Cookie Settings</span>
         </div>
 
         <ul className="payments-list">
