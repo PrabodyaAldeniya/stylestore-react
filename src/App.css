@@ -18,31 +18,36 @@
 
 /* ---- 1. DESIGN TOKENS ---- */
 :root {
-  /* ---- Controlled editorial palette ---- */
-  --ivory:     #F8F4ED;
-  --cream:     #EFE6D8;
-  --blush:     #F5E8EC;
-  --lavender:  #EEE9FA;
-  --plum:      #1B1022;
-  --electric:  #7C3AED;
-  --text:      #18131B;
-  --warm-white:#FBFAF5;
+  /* ---- Premium fashion store palette ---- */
+  --primary-dark:    #1B0F24;
+  --deep-purple:     #4C1D95;
+  --bright-purple:   #7C3AED;
+  --soft-lavender:   #EDE9FE;
+  --warm-cream:      #FFF9F2;
+  --soft-blush:      #FCEFF4;
+  --main-text:       #1F1724;
+  --secondary-text:  #756879;
+  --white:           #FFFFFF;
+  --success:         #15803D;
+  --error:           #C2413B;
+  --sale-accent:     #DC2626;
 
   /* ---- Mapped tokens (kept for component compat) ---- */
-  --ink:        var(--plum);
-  --paper:      var(--ivory);
-  --sand:       var(--cream);
-  --sand-mid:   #a79b8a;
-  --sand-2:     #e6dccb;
-  --electric-2: var(--electric);
-  --electric-d: #5b21b6;
-  --mint:       #23a55a;
-  --gold:       #d9a02a;
-  --shadow-sm: 0 2px 10px rgba(24, 19, 27, 0.08);
-  --shadow-md: 0 14px 34px rgba(24, 19, 27, 0.14);
-  --shadow-lg: 0 28px 60px rgba(24, 19, 27, 0.22);
-  --ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
-  --header-h:  72px;
+  --ink:             var(--primary-dark);
+  --paper:           var(--warm-cream);
+  --sand:            var(--warm-cream);
+  --sand-mid:        var(--secondary-text);
+  --sand-2:          #F0E7FF;
+  --electric:        var(--bright-purple);
+  --electric-d:      #5B2C6F;
+  --mint:            var(--success);
+  --gold:            #D4A574;
+  --shadow-sm:       0 2px 10px rgba(27, 15, 36, 0.06);
+  --shadow-md:       0 14px 34px rgba(27, 15, 36, 0.12);
+  --shadow-lg:       0 28px 60px rgba(27, 15, 36, 0.18);
+  --ease-out:        cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+  --header-h:        72px;
 }
 
 /* ---- 2. RESET & BASE ---- */
@@ -159,7 +164,7 @@ input, select, textarea {
   font-size: 12px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--electric);
+  color: var(--bright-purple);
   font-weight: 700;
 }
 
@@ -168,17 +173,18 @@ input, select, textarea {
   font-size: 12px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--electric);
+  color: var(--bright-purple);
   font-weight: 700;
 }
 
 .section-heading h2 {
   font-size: clamp(32px, 4.6vw, 58px);
   margin: 10px 0 16px;
+  color: var(--primary-dark);
 }
 
 .section-heading p {
-  color: var(--sand-mid);
+  color: var(--secondary-text);
   font-size: clamp(15px, 1.4vw, 17px);
 }
 
@@ -581,7 +587,7 @@ input, select, textarea {
    CATEGORY SHOWCASE — editorial shop-by-category cards
 ======================================================== */
 .category-showcase {
-  background: var(--ivory);
+  background: var(--warm-cream);
   border-bottom: 1px solid rgba(24, 19, 27, 0.05);
   padding: clamp(56px, 7vw, 96px) clamp(18px, 4vw, 40px) clamp(64px, 8vw, 104px);
   max-width: 1280px;
@@ -734,7 +740,7 @@ input, select, textarea {
 
 .category-pill:hover {
   border-color: rgba(124, 58, 237, 0.45);
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: var(--ink);
 }
 .category-pill:active { transform: translateY(1px) scale(0.98); }
@@ -775,7 +781,7 @@ input, select, textarea {
 }
 
 .category-pills-sub .category-pill:hover {
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: var(--ink);
 }
 
@@ -1403,7 +1409,7 @@ input, select, textarea {
 .promo-banner {
   background:
     radial-gradient(120% 180% at 50% 0%, rgba(124, 58, 237, 0.16), transparent 55%),
-    var(--plum);
+    var(--primary-dark);
   color: var(--paper);
   padding: clamp(64px, 8vw, 104px) clamp(18px, 4vw, 40px);
   display: flex;
@@ -1493,7 +1499,7 @@ input, select, textarea {
    22 — LOOKBOOK "THE STYLE EDIT"
 ======================================================== */
 .lookbook {
-  background: var(--blush);
+  background: var(--soft-blush);
   border-top: 1px solid rgba(24, 19, 27, 0.04);
   border-bottom: 1px solid rgba(24, 19, 27, 0.04);
   padding: clamp(56px, 7vw, 96px) 0;
@@ -1543,7 +1549,7 @@ input, select, textarea {
    23 — TESTIMONIALS
 ======================================================== */
 .testimonials {
-  background: linear-gradient(180deg, var(--lavender), #f2edf7);
+  background: linear-gradient(180deg, var(--soft-lavender), #f2edf7);
   border-top: 1px solid rgba(24, 19, 27, 0.05);
   border-bottom: 1px solid rgba(24, 19, 27, 0.05);
   padding: clamp(56px, 7vw, 88px) clamp(18px, 4vw, 40px);
@@ -1669,7 +1675,7 @@ input, select, textarea {
   font: inherit;
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--plum);
+  color: var(--primary-dark);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1694,10 +1700,10 @@ input, select, textarea {
   white-space: nowrap;
 }
 .rv-write-trigger.primary { background: var(--ink); color: var(--paper); }
-.rv-write-trigger.primary:hover { background: var(--plum); }
+.rv-write-trigger.primary:hover { background: var(--primary-dark); }
 .rv-write-trigger.secondary { background: var(--paper); color: var(--ink); border-color: var(--sand-2); }
-.rv-write-trigger.secondary:hover { border-color: var(--plum); color: var(--plum); }
-.rv-write-trigger.ghost { background: transparent; color: var(--plum); border-color: rgba(124, 58, 237, 0.35); }
+.rv-write-trigger.secondary:hover { border-color: var(--primary-dark); color: var(--primary-dark); }
+.rv-write-trigger.ghost { background: transparent; color: var(--primary-dark); border-color: rgba(124, 58, 237, 0.35); }
 .rv-write-trigger.ghost:hover { background: rgba(124, 58, 237, 0.08); }
 
 /* ---- Review card ---- */
@@ -1826,7 +1832,7 @@ input, select, textarea {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--plum);
+  color: var(--primary-dark);
   background: rgba(124, 58, 237, 0.08);
   border-radius: 999px;
   padding: 4px 12px;
@@ -1895,7 +1901,7 @@ input, select, textarea {
 
 .rv-alert { font-size: 14px; font-weight: 600; border-radius: 12px; padding: 11px 14px; margin: 12px 0 0; line-height: 1.55; }
 .rv-alert-error { color: #9b1c1c; background: rgba(197, 48, 48, 0.09); }
-.rv-alert-info { color: var(--plum); background: rgba(124, 58, 237, 0.09); }
+.rv-alert-info { color: var(--primary-dark); background: rgba(124, 58, 237, 0.09); }
 
 /* ---- Success screen ---- */
 .rv-form-done { text-align: center; padding: 8px 0 4px; }
@@ -1927,7 +1933,7 @@ input, select, textarea {
    24 — NEWSLETTER
 ======================================================== */
 .newsletter {
-  background: linear-gradient(135deg, var(--blush), var(--lavender));
+  background: linear-gradient(135deg, var(--soft-blush), var(--soft-lavender));
   border-top: 1px solid rgba(24, 19, 27, 0.05);
   border-bottom: 1px solid rgba(24, 19, 27, 0.05);
   padding: clamp(56px, 7vw, 96px) 0;
@@ -1943,7 +1949,7 @@ input, select, textarea {
 .newsletter-box {
   background:
     radial-gradient(120% 200% at 100% 0%, rgba(124, 58, 237, 0.12), transparent 60%),
-    var(--ivory);
+    var(--warm-cream);
   border: 2px solid rgba(124, 58, 237, 0.32);
   border-radius: 28px;
   box-shadow: 0 18px 40px rgba(62, 32, 82, 0.16), 0 5px 12px rgba(124, 58, 237, 0.1),
@@ -3160,7 +3166,7 @@ body, #root {
   justify-content: center;
   gap: 8px;
   color: var(--sand-mid);
-  background: linear-gradient(135deg, var(--cream), var(--lavender));
+  background: linear-gradient(135deg, var(--warm-cream), var(--soft-lavender));
   border: 1px dashed var(--sand-2);
   text-align: center;
 }
@@ -3181,7 +3187,7 @@ body, #root {
 }
 
 .badge-out {
-  background: var(--plum);
+  background: var(--primary-dark);
   color: #fff;
 }
 
@@ -3272,7 +3278,7 @@ body, #root {
   margin-bottom: 26px;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
   border-radius: 18px;
-  background: var(--cream, #faf7f2);
+  background: var(--warm-cream, #faf7f2);
   max-width: 100%;
 }
 

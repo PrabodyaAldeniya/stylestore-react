@@ -11,8 +11,8 @@
 .admin-auth-page {
   min-height: 100vh;
   background:
-    radial-gradient(1100px 520px at 12% -8%, var(--lavender) 0%, transparent 60%),
-    radial-gradient(900px 460px at 92% 0%, var(--blush) 0%, transparent 62%),
+    radial-gradient(1100px 520px at 12% -8%, var(--soft-lavender) 0%, transparent 60%),
+    radial-gradient(900px 460px at 92% 0%, var(--soft-blush) 0%, transparent 62%),
     var(--paper);
   color: var(--text);
 }
@@ -67,7 +67,7 @@
   border: 1px solid var(--sand-2);
   border-radius: 11px;
   background: var(--warm-white);
-  color: var(--plum);
+  color: var(--primary-dark);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
@@ -159,7 +159,7 @@
 
 .adm-notice-info {
   border-color: #d9c9f4;
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: #4c2a8a;
 }
 
@@ -227,7 +227,7 @@
 }
 
 .adm-button-secondary {
-  background: var(--plum);
+  background: var(--primary-dark);
   color: #fff;
 }
 
@@ -238,7 +238,7 @@
 .adm-button-ghost {
   border-color: var(--sand-2);
   background: var(--warm-white);
-  color: var(--plum);
+  color: var(--primary-dark);
 }
 
 .adm-button-ghost:hover:not(:disabled) {
@@ -319,7 +319,7 @@
 }
 
 .adm-button-quiet:hover:not(:disabled) {
-  color: var(--plum);
+  color: var(--primary-dark);
 }
 
 .adm-link-button {
@@ -524,7 +524,7 @@
   height: 76px;
   border-radius: 9px;
   overflow: hidden;
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .adm-cell-media img {
@@ -559,7 +559,7 @@
 }
 
 .adm-cell-name strong {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.9rem;
 }
 
@@ -576,14 +576,14 @@
 .adm-sku {
   padding: 2px 6px;
   border-radius: 6px;
-  background: var(--cream);
+  background: var(--warm-cream);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.72rem;
 }
 
 .adm-cell-price .price {
   display: block;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-weight: 700;
 }
 
@@ -669,7 +669,7 @@
 }
 
 .adm-tag-new {
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: #5b21b6;
 }
 
@@ -699,7 +699,7 @@
   border: 1px solid var(--sand-2);
   border-radius: 9px;
   background: var(--warm-white);
-  color: var(--plum);
+  color: var(--primary-dark);
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
@@ -761,7 +761,7 @@
 
 .adm-danger-head h2 {
   margin: 0;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-family: "Playfair Display", Georgia, serif;
   font-size: 1.35rem;
   line-height: 1.2;
@@ -881,7 +881,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: var(--electric);
 }
 
@@ -890,7 +890,7 @@
   align-items: center;
   gap: 9px;
   margin: 0;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-family: "Playfair Display", Georgia, serif;
   font-size: 1.2rem;
   line-height: 1.2;
@@ -904,7 +904,7 @@
   height: 24px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--plum);
+  background: var(--primary-dark);
   color: #fff;
   font-family: "Inter", system-ui, sans-serif;
   font-size: 0.72rem;
@@ -1043,7 +1043,7 @@
   padding: 15px 17px;
   border: 1px dashed var(--sand-2);
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--lavender) 0%, var(--warm-white) 62%);
+  background: linear-gradient(135deg, var(--soft-lavender) 0%, var(--warm-white) 62%);
 }
 
 .adm-price-now,
@@ -1063,7 +1063,7 @@
 }
 
 .adm-price-now strong {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.5rem, 3vw, 2rem);
   line-height: 1.1;
@@ -1156,7 +1156,7 @@
 }
 
 .adm-upload-title {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -1179,7 +1179,7 @@
   margin: 0;
   padding: 11px 13px;
   border-radius: 11px;
-  background: var(--cream);
+  background: var(--warm-cream);
   color: #6b6070;
   font-size: 0.79rem;
   line-height: 1.45;
@@ -1219,7 +1219,7 @@
   aspect-ratio: 4 / 5;
   object-fit: cover;
   border-radius: 8px;
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .adm-image-tag {
@@ -1341,7 +1341,7 @@
 
 .adm-size-mode.is-active {
   border-color: var(--electric);
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .adm-size-mode input[type="radio"] {
@@ -1413,7 +1413,7 @@
   border: 1px solid var(--sand-2);
   border-radius: 12px;
   background: var(--warm-white);
-  color: var(--plum);
+  color: var(--primary-dark);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 600;
@@ -1435,7 +1435,7 @@
 
 .adm-colour-btn.is-selected {
   border-color: var(--electric);
-  background: var(--lavender);
+  background: var(--soft-lavender);
   color: var(--electric-d);
   box-shadow: inset 0 0 0 1px var(--electric);
 }
@@ -1479,7 +1479,7 @@
 
 .adm-colour-more-summary {
   padding: 10px 12px;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1506,7 +1506,7 @@
   padding: 14px;
   border: 1px solid var(--sand-2);
   border-radius: 14px;
-  background: var(--cream);
+  background: var(--warm-cream);
 }
 
 .adm-colour-custom .adm-inline-label {
@@ -1583,8 +1583,8 @@
   padding: 5px 6px 5px 11px;
   border: 1px solid var(--sand-2);
   border-radius: 99px;
-  background: var(--cream);
-  color: var(--plum);
+  background: var(--warm-cream);
+  color: var(--primary-dark);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -1710,7 +1710,7 @@
 }
 
 .adm-switch-text strong {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.86rem;
 }
 
@@ -1748,7 +1748,7 @@
 
 .adm-radio.is-active {
   border-color: var(--electric);
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .adm-radio > span {
@@ -1758,7 +1758,7 @@
 }
 
 .adm-radio strong {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.88rem;
 }
 
@@ -1795,7 +1795,7 @@
 .adm-storage-note code {
   padding: 1px 5px;
   border-radius: 5px;
-  background: var(--cream);
+  background: var(--warm-cream);
   font-size: 0.7rem;
 }
 
@@ -1822,7 +1822,7 @@
 
 .adm-preview-media {
   min-width: 0;
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .adm-preview-media img {
@@ -1853,7 +1853,7 @@
 
 .adm-preview h2 {
   margin: 0 0 10px;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.4rem, 2.6vw, 2rem);
   line-height: 1.2;
@@ -1869,7 +1869,7 @@
 }
 
 .adm-preview-price .price {
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 1.5rem;
   font-weight: 800;
 }
@@ -1881,7 +1881,7 @@
 
 .adm-preview-short {
   margin: 0 0 8px;
-  color: var(--plum);
+  color: var(--primary-dark);
   font-size: 0.9rem;
 }
 
@@ -1897,7 +1897,7 @@
   gap: 7px;
   padding: 14px;
   border-radius: 13px;
-  background: var(--cream);
+  background: var(--warm-cream);
 }
 
 .adm-preview-row {
@@ -1913,7 +1913,7 @@
 }
 
 .adm-preview-value {
-  color: var(--plum);
+  color: var(--primary-dark);
   overflow-wrap: anywhere;
 }
 
@@ -1986,7 +1986,7 @@
   margin-bottom: 16px;
   border-radius: 13px;
   color: var(--electric);
-  background: var(--lavender);
+  background: var(--soft-lavender);
 }
 
 .admin-auth-card h1 {
@@ -2028,7 +2028,7 @@
 .admin-auth-note code {
   padding: 2px 5px;
   border-radius: 5px;
-  background: var(--cream);
+  background: var(--warm-cream);
   font-size: 0.72rem;
 }
 

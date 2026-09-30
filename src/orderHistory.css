@@ -252,7 +252,7 @@
   flex: 0 0 auto;
 }
 .order-status--pending { background: rgba(217, 160, 42, 0.16); color: #7a5a12; }
-.order-status--confirmed { background: var(--lavender); color: var(--electric-d); }
+.order-status--confirmed { background: var(--soft-lavender); color: var(--electric-d); }
 .order-status--processing { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
 .order-status--shipped { background: rgba(35, 165, 90, 0.14); color: #1a7a48; }
 .order-status--delivered { background: var(--mint); color: #fff; }
