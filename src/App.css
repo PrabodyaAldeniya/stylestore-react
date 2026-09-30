@@ -151,6 +151,7 @@ input, select, textarea {
   max-width: 1280px;
   margin: 0 auto;
   padding: clamp(48px, 6vw, 80px) clamp(18px, 4vw, 40px);
+  scroll-margin-top: calc(var(--header-h) + 20px);
 }
 
 .section-heading {
@@ -204,7 +205,7 @@ input, select, textarea {
   justify-content: center;
   gap: 10px;
   position: relative;
-  z-index: 60;
+  z-index: 70;
 }
 
 .announcement-bar .announcement-icon {
@@ -379,13 +380,50 @@ input, select, textarea {
 /* ---- mobile menu ---- */
 .mobile-menu {
   position: fixed;
-  inset: 0;
+  top: calc(var(--header-h) + env(safe-area-inset-top));
+  bottom: 0;
+  left: 0;
+  right: 0;
   background: var(--paper);
   z-index: 80;
   display: flex;
   flex-direction: column;
-  padding: 80px clamp(24px, 6vw, 48px) 40px;
+  padding: clamp(24px, 6vw, 48px) 40px;
   animation: menu-in 0.3s var(--ease-out);
+  overflow-y: auto;
+}
+
+/* iPhone safe-area support */
+@supports (padding: constant(safe-area-top)) {
+  .mobile-menu {
+    padding-top: calc(clamp(24px, 6vw, 48px) + env(safe-area-inset-top));
+  }
+}
+
+@supports not (padding: constant(safe-area-top)) {
+  .mobile-menu {
+    padding-top: clamp(24px, 6vw, 48px);
+  }
+}
+
+/* ---- mobile menu backdrop ---- */
+.mobile-menu-backdrop {
+  position: fixed;
+  top: calc(var(--header-h) + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(31, 23, 36, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 75;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.mobile-menu-backdrop.show {
+  opacity: 1;
+  visibility: visible;
 }
 
 @keyframes menu-in {
@@ -1112,14 +1150,17 @@ input, select, textarea {
 }
 
 .navbar {
-  position: static;
+  position: sticky;
+  top: 0;
+  z-index: 50;
   max-width: 1280px;
   margin: 0 auto;
   height: var(--header-h);
   padding: 0 clamp(16px, 4vw, 48px);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 28px;
+  gap: 16px;
 }
 
 .logo {
@@ -3049,9 +3090,9 @@ body, #root {
   .mobile-menu-backdrop { display: none; }
 }
 
-/* Below 768px the header is 64px tall — start the drawer under it. */
+/* Below 768px the header starts at 72px — keep menu below it. */
 @media (max-width: 768px) {
-  .mobile-menu { top: 64px; }
+  .mobile-menu { top: calc(var(--header-h) + env(safe-area-inset-top)); }
 }
 
 /* 320px-class screens: a touch more readable padding inside the drawer. */
@@ -3078,7 +3119,7 @@ body, #root {
   .site-header {
     position: sticky;
     top: 0;
-    z-index: 60;
+z-index: 70;
   }
 
   .navbar {
