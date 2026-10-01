@@ -1,0 +1,542 @@
+﻿
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026  12:49 PM          49261 admin.css                                                            
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:00 AM           7271 adminApi.js                                                          
+-a----         9/29/2026   3:05 PM           6288 adminCatalog.js                                                      
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:08 AM           1107 AdminField.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:14 AM           3108 AdminLogin.jsx                                                       
+-a----         9/29/2026   5:20 PM          62798 AdminProductEditor.jsx                                               
+-a----         9/29/2026  10:10 AM          17714 AdminProducts.jsx                                                    
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026   2:36 PM          11127 AdminProductTable.jsx                                                
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:14 AM          27949 AdminReviews.jsx                                                     
+-a----         9/28/2026   2:48 PM          13394 AdminTrash.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026  12:27 PM           1139 AnnouncementBar.jsx                                                  
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026   5:02 PM          92913 App.css                                                              
+-a----         9/29/2026  11:08 AM          14567 App.jsx                                                              
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/23/2026  11:11 AM           1163 Benefits.jsx                                                         
+
+
+    Directory: E:\react\my-react-app\src\context
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/24/2026   2:55 PM             87 cartContext.js                                                       
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:09 PM           5667 CartDrawer.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\context
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   1:30 PM           5654 CartProvider.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:32 AM           3460 CategoryFilter.jsx                                                   
+-a----         9/25/2026  12:31 PM           3103 CategoryShowcase.jsx                                                 
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026  12:50 PM          19128 checkout.css                                                         
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  12:33 PM           2016 checkout.js                                                          
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:09 PM          29195 Checkout.jsx                                                         
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  12:31 PM           1232 checkoutApi.js                                                       
+-a----         9/28/2026  12:51 PM          12401 colours.js                                                           
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  12:52 PM           6183 ColourSelector.jsx                                                   
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         10/1/2026  10:32 AM           9413 Footer.css                                                           
+-a----         10/1/2026  10:32 AM           4950 Footer.jsx                                                           
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:24 PM            846 format.js                                                            
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:08 AM            834 FormSection.jsx                                                      
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/22/2026  12:52 PM           2262 Hero.jsx                                                             
+
+
+    Directory: E:\react\my-react-app\src\assets
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/15/2026   4:56 PM          13057 hero.png                                                             
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/22/2026   1:51 PM           1458 hooks.js                                                             
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:21 AM           7392 ImageManager.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/23/2026   9:48 AM            318 index.css                                                            
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/23/2026  11:11 AM           1930 Lookbook.jsx                                                         
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:50 AM           3024 main.jsx                                                             
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:42 AM           9172 Navbar.jsx                                                           
+-a----         9/24/2026   3:13 PM           9017 Newsletter.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\components\orders
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:14 PM           4702 OrderCard.jsx                                                        
+-a----         9/29/2026   2:09 PM           9144 OrderDetails.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026  12:50 PM          15330 orderHistory.css                                                     
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:10 AM           6775 OrderHistory.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  10:10 AM           1728 orderHistoryApi.js                                                   
+-a----         9/25/2026  12:31 PM            629 orderHistoryHelpers.js                                               
+
+
+    Directory: E:\react\my-react-app\src\components\orders
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  10:10 AM           2245 OrderHistoryState.jsx                                                
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  10:09 AM           2118 orderHistoryStorage.js                                               
+
+
+    Directory: E:\react\my-react-app\src\components\orders
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:00 AM           7228 OrderLookupForm.jsx                                                  
+-a----         9/25/2026  10:10 AM           1301 OrderStatusBadge.jsx                                                 
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026  10:12 AM           6333 OrderSuccess.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026   2:36 PM           5299 PermanentDeleteDialog.jsx                                            
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   5:18 PM           5897 pricing.js                                                           
+-a----         9/29/2026   5:19 PM           6729 productApi.js                                                        
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   1:31 PM           6415 ProductCard.jsx                                                      
+-a----         9/29/2026  10:43 AM           2478 ProductList.jsx                                                      
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:27 PM           5969 ProductPreviewDialog.jsx                                             
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:08 PM           9543 ProductQuickView.jsx                                                 
+
+
+    Directory: E:\react\my-react-app\src\components\reviews
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:03 AM           6358 ProductReviews.jsx                                                   
+
+
+    Directory: E:\react\my-react-app\src\data
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/25/2026   1:51 PM             50 products.js                                                          
+
+
+    Directory: E:\react\my-react-app\src\pages
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:43 AM          16967 ProductsPage.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/24/2026   4:11 PM            902 PromoBanner.jsx                                                      
+-a----         9/24/2026   2:57 PM           4459 PromoPopup.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:08 PM           8280 publicSizeDisplay.js                                                 
+
+
+    Directory: E:\react\my-react-app\src\assets
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/15/2026   4:56 PM           4126 react.svg                                                            
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/28/2026  11:17 AM           1277 RequireAdmin.jsx                                                     
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/23/2026  11:12 AM           1072 Reveal.css                                                           
+-a----         9/22/2026  12:51 PM           1540 Reveal.jsx                                                           
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:57 AM           3179 reviewApi.js                                                         
+
+
+    Directory: E:\react\my-react-app\src\components\reviews
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:00 AM           3494 ReviewCard.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:02 AM           1985 reviewEvents.js                                                      
+
+
+    Directory: E:\react\my-react-app\src\data
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/30/2026   2:12 PM           2507 sampleReviews.js                                                     
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/24/2026   2:55 PM            365 ScrollToTop.jsx                                                      
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   2:07 PM           5542 sizeModes.js                                                         
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026   1:27 PM           4673 SizeTypeSelector.jsx                                                 
+
+
+    Directory: E:\react\my-react-app\src\components\reviews
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:10 AM           2853 StarRating.jsx                                                       
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:04 AM           5689 Testimonials.jsx                                                     
+-a----         9/22/2026  12:53 PM           1259 ToastList.css                                                        
+-a----         9/22/2026  12:51 PM            855 ToastList.jsx                                                        
+
+
+    Directory: E:\react\my-react-app\src\context
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/24/2026   2:55 PM            251 useCart.js                                                           
+
+
+    Directory: E:\react\my-react-app\src\lib
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:06 AM           8299 useProductSearch.js                                                  
+-a----         9/29/2026  10:41 AM           2119 useWishlist.js                                                       
+
+
+    Directory: E:\react\my-react-app\src\assets
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/15/2026   4:56 PM           8709 vite.svg                                                             
+
+
+    Directory: E:\react\my-react-app\src\components
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:41 AM           2517 WishlistDrawer.jsx                                                   
+
+
+    Directory: E:\react\my-react-app\src\components\reviews
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  10:59 AM           3379 WriteReviewDialog.jsx                                                
+-a----         9/29/2026  11:10 AM          22204 WriteReviewForm.jsx                                                  
+
+
+    Directory: E:\react\my-react-app\src\components\admin
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----         9/29/2026  11:13 AM          10729 WriteTestimonialForm.jsx                                             
+
+
