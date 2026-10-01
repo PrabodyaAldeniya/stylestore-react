@@ -6,10 +6,10 @@ StyleStore is a React/Vite storefront backed by an Express API and MySQL/MariaDB
 <img width="500" height="500" alt="admin-edit-product" src="https://github.com/user-attachments/assets/aabbf657-090f-4248-9652-b43fc31d3d1b" />
 <img width="500" height="500" alt="home-hero" src="https://github.com/user-attachments/assets/65e44b2e-f226-4a7a-a541-a46087f8f5a9" />
 <img width="500" height="500" alt="product-catalogue" src="https://github.com/user-attachments/assets/572c0cba-ab0a-489e-8ea3-0baaf079aa2f" />
-<img width="200" height="200" alt="card details" src="https://github.com/user-attachments/assets/c609074e-c359-423e-8a25-5791994ee052" />
-<img width="200" height="200" alt="shopping-cart" src="https://github.com/user-attachments/assets/ea1dd08b-b832-4712-bcec-3caa786296d8" />
-<img width="200" height="200" alt="checkout" src="https://github.com/user-attachments/assets/85e10ad1-b7c7-48f9-8eeb-47f5b522a42a" />
-<img width="1500" height="1500" alt="mobile-full-page" src="https://github.com/user-attachments/assets/ed72541f-2cb8-4cc9-9601-8da338742325" />
+<img width="300" height="300" alt="card details" src="https://github.com/user-attachments/assets/c609074e-c359-423e-8a25-5791994ee052" />
+<img width="300" height="300" alt="shopping-cart" src="https://github.com/user-attachments/assets/ea1dd08b-b832-4712-bcec-3caa786296d8" />
+<img width="300" height="300" alt="checkout" src="https://github.com/user-attachments/assets/85e10ad1-b7c7-48f9-8eeb-47f5b522a42a" />
+<img width="3500" height="3500" alt="mobile-full-page" src="https://github.com/user-attachments/assets/ed72541f-2cb8-4cc9-9601-8da338742325" />
 
 ## Requirements
 - Node.js 20 or newer
