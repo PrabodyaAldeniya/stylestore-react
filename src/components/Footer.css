@@ -136,12 +136,12 @@
   margin: 14px 0 0;
 }
 
-/* Social row */
+/* Social row — left-aligned, visible circular borders */
 .social-row {
   width: 100%;
-  margin-inline: auto;
+  /* removed: margin-inline: auto; justify-content: center */
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
   margin-top: 20px;
@@ -153,7 +153,8 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid var(--footer-border);
+  /* visible dark border matching footer design */
+  border: 1.5px solid var(--footer-ivory);
   color: var(--footer-ivory);
   background: transparent;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
@@ -368,7 +369,7 @@
   }
 
   .social-row {
-    justify-content: center;
+    justify-content: flex-start;
     margin-top: 18px;
   }
 
