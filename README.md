@@ -9,7 +9,6 @@ StyleStore is a React/Vite storefront backed by an Express API and MySQL/MariaDB
 <img width="300" height="300" alt="card details" src="https://github.com/user-attachments/assets/c609074e-c359-423e-8a25-5791994ee052" />
 <img width="300" height="300" alt="shopping-cart" src="https://github.com/user-attachments/assets/ea1dd08b-b832-4712-bcec-3caa786296d8" />
 <img width="300" height="300" alt="checkout" src="https://github.com/user-attachments/assets/85e10ad1-b7c7-48f9-8eeb-47f5b522a42a" />
-<img width="3500" height="3500" alt="mobile-full-page" src="https://github.com/user-attachments/assets/ed72541f-2cb8-4cc9-9601-8da338742325" />
 
 ## Requirements
 - Node.js 20 or newer
