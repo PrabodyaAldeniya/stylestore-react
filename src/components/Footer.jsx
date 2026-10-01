@@ -28,7 +28,17 @@ function FooterColumn({ title, items, open, onToggle }) {
 
       <div className={open ? "footer-col-links open" : "footer-col-links"}>
         {items.map((item) => (
-          <span key={item}>{item}</span>
+          <span
+            key={item}
+            className={
+              item === "New In" ||
+              item === "Delivery" ||
+              item === "Our Story"
+                ? "footer-featured-link"
+                : ""
+            }
+          >
+            {item}</span>
         ))}
       </div>
     </nav>

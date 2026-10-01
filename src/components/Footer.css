@@ -138,6 +138,8 @@
 
 /* Social row */
 .social-row {
+  width: 100%;
+  margin-inline: auto;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -218,6 +220,13 @@
   line-height: 1.5;
   padding: 2px 0;
   transition: color 0.2s ease, text-indent 0.2s ease;
+}
+
+.footer-featured-link {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--footer-ivory);
+  margin-bottom: 4px;
 }
 
 .footer-col a:hover {
