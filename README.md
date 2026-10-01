@@ -1,6 +1,8 @@
 # StyleStore
 
 StyleStore is a React/Vite storefront backed by an Express API and MySQL/MariaDB. Product records, variants, images, stock, checkout pricing, and order snapshots are served by the backend rather than a browser-side catalogue.
+<img width="602" height="842" alt="admin-login" src="https://github.com/user-attachments/assets/f21a42ea-2ed2-48fe-ae9f-189a929b9dcb" />
+
 
 ## Requirements
 
